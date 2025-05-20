@@ -1,15 +1,15 @@
-entrypoint = "wordbot.py"
+entrypoint = "main.py"
+modules = ["python-3.11"]
 
-[env]
+[nix]
+channel = "stable-24_05"
 
-[packages]
-python-dotenv
-
-[tool.poetry.dependencies]
-python-dotenv = "*"
-
-[language]
+[unitTest]
 language = "python3"
 
-[run]
-command = "python3 wordbot.py"
+[gitHubImport]
+requiredFiles = [".replit", "replit.nix"]
+
+[deployment]
+run = ["python3", "main.py"]
+deploymentTarget = "cloudrun"
