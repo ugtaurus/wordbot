@@ -1,6 +1,4 @@
-from dotenv import load_dotenv
-load_dotenv()
-entrypoint = "wordbot.py"
+entrypoint = "main.py"
 modules = ["python-3.11"]
 
 [nix]
@@ -13,5 +11,5 @@ language = "python3"
 requiredFiles = [".replit", "replit.nix"]
 
 [deployment]
-run = ["python3", "wordbot.py"]
+run = ["python3", "main.py"]
 deploymentTarget = "cloudrun"
