@@ -4,21 +4,19 @@ import os
 import discord
 import asyncio
 import random
-from dotenv import load_dotenv
-from keep_alive import keep_alive  # make sure keep_alive.py is in the same folder
+# Removed: from dotenv import load_dotenv
 
-# Load token from .env file
-load_dotenv()
-TOKEN = os.getenv("TOKEN")
+# Removed: load_dotenv()
+TOKEN = os.getenv("TOKEN")  # This still works because Render uses Environment Variables
 
 # ---------- SETTINGS ---------- #
 TARGET_CHANNEL_ID = 1374368615138328656  # Replace with your target channel ID
 
-WORDS_PER_ROUND = 8        # Default number of words per round
-ROUND_DURATION = 60        # Default duration of each round in seconds
-TWISTER_COOLDOWN = 600     # Cooldown after sending a twister (in seconds)
+WORDS_PER_ROUND = 8
+ROUND_DURATION = 60
+TWISTER_COOLDOWN = 600
 
-WORD_BANK_PATH = "wordbanks"  # Folder where your word files are stored
+WORD_BANK_PATH = "wordbanks"
 
 # ---------- GLOBALS ---------- #
 intents = discord.Intents.default()
