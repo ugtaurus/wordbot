@@ -16,7 +16,7 @@ WORD_BANK_PATH = "wordbanks"
 
 # List of authorized user IDs who can control the bot (replace with your Discord user ID(s))
 AUTHORIZED_USERS = {
-    123456789012345678,  # Your Discord user ID here
+    1346529619745968282, 980228838325903361  # Your Discord user ID here
     # Add more IDs if needed
 }
 
