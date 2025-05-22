@@ -14,12 +14,6 @@ WORDS_PER_ROUND = 5
 ROUND_DURATION = 30
 WORD_BANK_PATH = "wordbanks"
 
-# List of authorized user IDs who can control the bot (replace with your Discord user ID(s))
-AUTHORIZED_USERS = {
-    1346529619745968282, 980228838325903361  # Your Discord user ID here
-    # Add more IDs if needed
-}
-
 # ---------- GLOBALS ---------- #
 WORD_FILES_RANDOM = [
     "adjectives.txt",
@@ -142,10 +136,6 @@ async def word_round():
 
     await target_channel.send("**🔥 Sheesh, fire!! Time to pass the Metal! 🔁**")
 
-# ---------- HELPER: check authorization ----------
-def is_authorized(user_id):
-    return user_id in AUTHORIZED_USERS
-
 # ---------- EVENTS ---------- #
 @client.event
 async def on_ready():
@@ -164,11 +154,14 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    # Check if author is authorized
-    if not is_authorized(message.author.id):
-        return  # Ignore messages from unauthorized users
-
     content = message.content.lower()
+
+    # Delete commands if possible
+    try:
+        if message.channel.permissions_for(message.guild.me).manage_messages:
+            await message.delete()
+    except Exception:
+        pass
 
     if content.startswith("+start") and not active_session:
         active_session = True
