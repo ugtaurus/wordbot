@@ -89,7 +89,6 @@ async def run_twisters():
 
     twister_mode = False
     await target_channel.send("🎤 Resuming word drop session...")
-    # Resume word dropping session automatically
     await word_round()
 
 async def word_round():
@@ -104,7 +103,6 @@ async def word_round():
     else:
         words = load_random_words()
 
-    # Filter out used words
     words = [w for w in words if w not in used_words]
 
     if not words:
@@ -156,13 +154,21 @@ async def on_message(message):
 
     content = message.content.lower()
 
-    # Delete commands if possible
-    try:
-        if message.channel.permissions_for(message.guild.me).manage_messages:
-            await message.delete()
-    except Exception:
-        pass
+    # Only delete messages that are valid bot commands
+    command_prefixes = (
+        "+start", "+stop", "+nouns", "+verbs", "+adjectives", "+adverbs",
+        "+prepositions", "+conjunctions", "+syllables", "+twisters",
+        "+reset", "+wordcount", "+wordtime"
+    )
 
+    if any(content.startswith(cmd) for cmd in command_prefixes):
+        try:
+            if message.channel.permissions_for(message.guild.me).manage_messages:
+                await message.delete()
+        except Exception:
+            pass
+
+    # Handle commands
     if content.startswith("+start") and not active_session:
         active_session = True
         stop_signal.clear()
@@ -207,7 +213,6 @@ async def on_message(message):
         parts = content.split()
         if len(parts) == 2 and parts[1].isdigit():
             syll_num = parts[1]
-            # syllables 1.txt, syllables 2.txt etc
             if 1 <= int(syll_num) <= 12:
                 word_type = f"syllables {syll_num}"
                 await message.channel.send(f"Loading words with **{syll_num} syllable(s)** in next round...")
@@ -218,7 +223,7 @@ async def on_message(message):
 
     elif content.startswith("+twisters"):
         twister_mode = True
-        stop_signal.set()  # stop any current round immediately
+        stop_signal.set()
         await run_twisters()
 
     elif content.startswith("+reset"):
