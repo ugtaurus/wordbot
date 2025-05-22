@@ -89,6 +89,7 @@ async def run_twisters():
 
     twister_mode = False
     await target_channel.send("🎤 Resuming word drop session...")
+    # Resume word dropping session automatically
     await word_round()
 
 async def word_round():
@@ -103,6 +104,7 @@ async def word_round():
     else:
         words = load_random_words()
 
+    # Filter out used words
     words = [w for w in words if w not in used_words]
 
     if not words:
@@ -154,21 +156,32 @@ async def on_message(message):
 
     content = message.content.lower()
 
-    # Only delete messages that are valid bot commands
-    command_prefixes = (
+    # --- SAFE COMMAND DELETION LOGIC ---
+    command_list = [
         "+start", "+stop", "+nouns", "+verbs", "+adjectives", "+adverbs",
-        "+prepositions", "+conjunctions", "+syllables", "+twisters",
-        "+reset", "+wordcount", "+wordtime"
-    )
+        "+prepositions", "+conjunctions", "+twisters", "+reset",
+        "+wordcount", "+wordtime"
+    ]
 
-    if any(content.startswith(cmd) for cmd in command_prefixes):
+    # Handle +syllables 1-12 commands separately
+    if content.startswith("+syllables"):
+        parts = content.split()
+        if len(parts) == 2 and parts[1].isdigit() and 1 <= int(parts[1]) <= 12:
+            is_valid_command = True
+        else:
+            is_valid_command = False
+    else:
+        is_valid_command = content in command_list
+
+    # Delete commands only in the target channel
+    if is_valid_command and message.channel.id == TARGET_CHANNEL_ID:
         try:
             if message.channel.permissions_for(message.guild.me).manage_messages:
                 await message.delete()
         except Exception:
             pass
 
-    # Handle commands
+    # --- COMMAND HANDLING ---
     if content.startswith("+start") and not active_session:
         active_session = True
         stop_signal.clear()
@@ -223,7 +236,7 @@ async def on_message(message):
 
     elif content.startswith("+twisters"):
         twister_mode = True
-        stop_signal.set()
+        stop_signal.set()  # stop any current round immediately
         await run_twisters()
 
     elif content.startswith("+reset"):
