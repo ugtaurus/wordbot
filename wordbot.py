@@ -15,6 +15,16 @@ ROUND_DURATION = 30
 WORD_BANK_PATH = "wordbanks"
 
 # ---------- GLOBALS ---------- #
+WORD_FILES_RANDOM = [
+    "adjectives.txt",
+    "adverbs.txt",
+    "conjunctions.txt",
+    "nouns.txt",
+    "prepositions.txt",
+    "syllables 1.txt",
+    "syllables 3.txt"
+]
+
 intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
@@ -22,6 +32,8 @@ client = discord.Client(intents=intents)
 word_type = None
 active_session = False
 target_channel = None
+twister_mode = False
+word_lists = {}
 used_words = set()
 stop_signal = asyncio.Event()
 
@@ -30,50 +42,77 @@ round_duration = ROUND_DURATION
 
 # ---------- UTILS ---------- #
 def load_word_list(word_type):
-    # word_type can be syllable number as string ('1', '2', ...), or normal types like 'nouns'
     if word_type in word_lists:
         return word_lists[word_type]
 
-    file_path = os.path.join(WORD_BANK_PATH, f"{word_type}.txt")
+    filename = word_type + ".txt"
+    file_path = os.path.join(WORD_BANK_PATH, filename)
     if not os.path.isfile(file_path):
+        print(f"⚠️ Word file not found: {filename}")
         return []
 
     with open(file_path, "r", encoding="utf-8") as f:
         words = [line.strip() for line in f if line.strip()]
     random.shuffle(words)
     word_lists[word_type] = words
+    print(f"Loaded {len(words)} words from {filename}")
     return words
 
-def load_all_words():
-    # When word_type is None, load only syllable 1 and syllable 3 merged.
+def load_random_words():
     all_words = []
-    for syllable in ['1', '3']:
-        all_words.extend(load_word_list(syllable))
+    for fname in WORD_FILES_RANDOM:
+        wt = fname[:-4]  # remove '.txt'
+        all_words.extend(load_word_list(wt))
     random.shuffle(all_words)
+    print(f"Total random words loaded: {len(all_words)}")
     return all_words
 
-# Cache word lists
-word_lists = {}
+async def run_twisters():
+    global twister_mode, target_channel
+    twisters = load_word_list("twisters")
+    if not twisters:
+        await target_channel.send("No tongue twisters found.")
+        twister_mode = False
+        return
+
+    twister_mode = True
+    await target_channel.send("🎤 Starting Twister mode with automatic repeat!")
+
+    await asyncio.sleep(1)
+    first_twister = random.choice(twisters)
+    await target_channel.send(f"Here's a twister:\n{first_twister}")
+    await asyncio.sleep(150)  # 2.5 minutes wait after first twister
+
+    second_twister = random.choice([t for t in twisters if t != first_twister]) or first_twister
+    await target_channel.send(f"Here's another twister:\n{second_twister}")
+    await asyncio.sleep(60)  # 1 minute wait after second twister
+
+    twister_mode = False
+    await target_channel.send("🎤 Resuming word drop session...")
+    # Resume word dropping session automatically
+    await word_round()
 
 async def word_round():
-    global word_type, target_channel, active_session, used_words
+    global word_type, used_words
 
-    words = []
+    if twister_mode:
+        await run_twisters()
+        return
+
     if word_type:
         words = load_word_list(word_type)
     else:
-        words = load_all_words()
+        words = load_random_words()
 
     # Filter out used words
     words = [w for w in words if w not in used_words]
 
-    # Reset used words if empty
     if not words:
         used_words.clear()
         if word_type:
             words = load_word_list(word_type)
         else:
-            words = load_all_words()
+            words = load_random_words()
         words = [w for w in words if w not in used_words]
 
     if not words:
@@ -109,24 +148,25 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    global word_type, active_session, target_channel
-    global words_per_round, round_duration, stop_signal
+    global word_type, active_session, target_channel, twister_mode
+    global words_per_round, round_duration, stop_signal, used_words
 
     if message.author == client.user:
         return
 
     content = message.content.lower()
 
-    # Remove command message for clean chat
+    # Delete commands if possible
     try:
-        await message.delete()
-    except discord.errors.Forbidden:
-        # Bot missing permissions to delete messages
+        if message.channel.permissions_for(message.guild.me).manage_messages:
+            await message.delete()
+    except Exception:
         pass
 
     if content.startswith("+start") and not active_session:
         active_session = True
         stop_signal.clear()
+        used_words.clear()
         await message.channel.send("🎤 Starting word drop session...")
         while active_session:
             await word_round()
@@ -139,12 +179,6 @@ async def on_message(message):
         else:
             await message.channel.send("No active session to stop.")
 
-    elif content.startswith("+reset"):
-        word_type = None
-        stop_signal.clear()
-        await message.channel.send("Words reset ♻️ Back to random syllable 1 and 3.")
-
-    # Word type commands
     elif content.startswith("+nouns"):
         word_type = "nouns"
         await message.channel.send("Loading **nouns** in next round...")
@@ -169,18 +203,30 @@ async def on_message(message):
         word_type = "conjunctions"
         await message.channel.send("Loading **conjunctions** in next round...")
 
-    # Syllable commands: +syllables 1 to +syllables 12
     elif content.startswith("+syllables"):
         parts = content.split()
         if len(parts) == 2 and parts[1].isdigit():
-            num = parts[1]
-            if num in [str(i) for i in range(1,13)]:
-                word_type = num
-                await message.channel.send(f"Loading words with **{num} syllable(s)** in next round...")
+            syll_num = parts[1]
+            # syllables 1.txt, syllables 2.txt etc
+            if 1 <= int(syll_num) <= 12:
+                word_type = f"syllables {syll_num}"
+                await message.channel.send(f"Loading words with **{syll_num} syllable(s)** in next round...")
             else:
-                await message.channel.send("Syllable number must be between 1 and 12.")
+                await message.channel.send("Please specify syllables between 1 and 12.")
         else:
-            await message.channel.send("Usage: `+syllables N` where N is 1-12.")
+            await message.channel.send("Usage: `+syllables 1` to `+syllables 12`")
+
+    elif content.startswith("+twisters"):
+        twister_mode = True
+        stop_signal.set()  # stop any current round immediately
+        await run_twisters()
+
+    elif content.startswith("+reset"):
+        word_type = None
+        twister_mode = False
+        stop_signal.clear()
+        used_words.clear()
+        await message.channel.send("Words reset ♻️")
 
     elif content.startswith("+wordcount"):
         parts = content.split()
