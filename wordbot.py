@@ -156,12 +156,13 @@ async def on_message(message):
 
     content = message.content.lower()
 
-    # Delete commands if possible
-    try:
-        if message.channel.permissions_for(message.guild.me).manage_messages:
-            await message.delete()
-    except Exception:
-        pass
+    # Delete command messages only if in target channel and start with '+'
+    if message.channel.id == TARGET_CHANNEL_ID and content.startswith("+"):
+        try:
+            if message.channel.permissions_for(message.guild.me).manage_messages:
+                await message.delete()
+        except Exception:
+            pass
 
     if content.startswith("+start") and not active_session:
         active_session = True
@@ -207,6 +208,7 @@ async def on_message(message):
         parts = content.split()
         if len(parts) == 2 and parts[1].isdigit():
             syll_num = parts[1]
+            # syllables 1.txt, syllables 2.txt etc
             if 1 <= int(syll_num) <= 12:
                 word_type = f"syllables {syll_num}"
                 await message.channel.send(f"Loading words with **{syll_num} syllable(s)** in next round...")
