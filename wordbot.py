@@ -14,6 +14,12 @@ WORDS_PER_ROUND = 5
 ROUND_DURATION = 30
 WORD_BANK_PATH = "wordbanks"
 
+# List of authorized user IDs who can control the bot (replace with your Discord user ID(s))
+AUTHORIZED_USERS = {
+    123456789012345678,  # Your Discord user ID here
+    # Add more IDs if needed
+}
+
 # ---------- GLOBALS ---------- #
 WORD_FILES_RANDOM = [
     "adjectives.txt",
@@ -136,6 +142,10 @@ async def word_round():
 
     await target_channel.send("**🔥 Sheesh, fire!! Time to pass the Metal! 🔁**")
 
+# ---------- HELPER: check authorization ----------
+def is_authorized(user_id):
+    return user_id in AUTHORIZED_USERS
+
 # ---------- EVENTS ---------- #
 @client.event
 async def on_ready():
@@ -154,34 +164,12 @@ async def on_message(message):
     if message.author == client.user:
         return
 
+    # Check if author is authorized
+    if not is_authorized(message.author.id):
+        return  # Ignore messages from unauthorized users
+
     content = message.content.lower()
 
-    # --- SAFE COMMAND DELETION LOGIC ---
-    command_list = [
-        "+start", "+stop", "+nouns", "+verbs", "+adjectives", "+adverbs",
-        "+prepositions", "+conjunctions", "+twisters", "+reset",
-        "+wordcount", "+wordtime"
-    ]
-
-    # Handle +syllables 1-12 commands separately
-    if content.startswith("+syllables"):
-        parts = content.split()
-        if len(parts) == 2 and parts[1].isdigit() and 1 <= int(parts[1]) <= 12:
-            is_valid_command = True
-        else:
-            is_valid_command = False
-    else:
-        is_valid_command = content in command_list
-
-    # Delete commands only in the target channel
-    if is_valid_command and message.channel.id == TARGET_CHANNEL_ID:
-        try:
-            if message.channel.permissions_for(message.guild.me).manage_messages:
-                await message.delete()
-        except Exception:
-            pass
-
-    # --- COMMAND HANDLING ---
     if content.startswith("+start") and not active_session:
         active_session = True
         stop_signal.clear()
