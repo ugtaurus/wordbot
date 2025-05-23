@@ -33,12 +33,14 @@ word_type = None
 active_session = False
 target_channel = None
 twister_mode = False
-twister_active = False  # <-- Added: to prevent overlapping twister rounds
+twister_active = False  # To prevent overlapping twister rounds
 used_words = set()
 stop_signal = asyncio.Event()
 words_per_round = WORDS_PER_ROUND
 round_duration = ROUND_DURATION
 word_lists = {}
+
+word_drop_task = None  # Background task handle for word drop loop
 
 # ---------- UTILS ---------- #
 def load_word_list(word_type):
@@ -166,6 +168,14 @@ async def word_round():
     await target_channel.send("**🔥 Sheesh, fire!! Time to pass the Metal! 🔁**")
     await asyncio.sleep(5)
 
+# New background word drop loop task
+async def word_drop_loop():
+    while active_session:
+        if stop_signal.is_set() or twister_mode:
+            await asyncio.sleep(1)  # Pause while stopped or in twister mode
+            continue
+        await word_round()
+
 # ---------- EVENTS ---------- #
 @client.event
 async def on_ready():
@@ -179,7 +189,7 @@ async def on_ready():
 @client.event
 async def on_message(message):
     global word_type, active_session, target_channel, twister_mode
-    global words_per_round, round_duration, stop_signal, used_words
+    global words_per_round, round_duration, stop_signal, used_words, word_drop_task
 
     if message.author == client.user:
         return
@@ -193,18 +203,22 @@ async def on_message(message):
         except Exception:
             pass
 
-    if content.startswith("+start") and not active_session:
-        active_session = True
-        stop_signal.clear()
-        used_words.clear()
-        await message.channel.send("🎤 Starting word drop session...")
-        while active_session:
-            await word_round()
+    if content.startswith("+start"):
+        if active_session:
+            await message.channel.send("A word drop session is already active.")
+        else:
+            active_session = True
+            stop_signal.clear()
+            used_words.clear()
+            await message.channel.send("🎤 Starting word drop session...")
+            word_drop_task = asyncio.create_task(word_drop_loop())
 
     elif content.startswith("+stop"):
         if active_session:
             active_session = False
             stop_signal.set()
+            if word_drop_task:
+                word_drop_task.cancel()
             await message.channel.send("🛑 Word drop session force-stopped.")
         else:
             await message.channel.send("No active session to stop.")
@@ -250,8 +264,8 @@ async def on_message(message):
             await message.channel.send("A twister round is already running. Please wait.")
             return
         twister_mode = True
-        stop_signal.set()
-        await run_twisters()
+        stop_signal.set()  # pause word drop rounds
+        await run_twisters()  # after done, clears stop_signal and twister_mode
 
     elif content.startswith("+reset"):
         active_session = False
@@ -259,6 +273,8 @@ async def on_message(message):
         twister_mode = False
         stop_signal.clear()
         used_words.clear()
+        if word_drop_task:
+            word_drop_task.cancel()
         print("🧹 Full reset: active_session=False, twister_mode=False, stop_signal cleared.")
         await message.channel.send("Words reset ♻️")
 
