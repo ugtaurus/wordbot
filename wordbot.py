@@ -32,8 +32,10 @@ client = discord.Client(intents=intents)
 word_type = None
 active_session = False
 target_channel = None
-twister_mode = False
-twister_triggered = False
+twister_mode = False        # True while twister is ongoing
+twister_cooldown = False    # Prevents triggering twister twice per round
+twister_triggered = False   # Whether twister triggered in current round
+
 word_lists = {}
 used_words = set()
 stop_signal = asyncio.Event()
@@ -69,45 +71,72 @@ def load_random_words():
     return all_words
 
 async def run_twisters_once():
-    global twister_mode, target_channel, twister_triggered
-    if twister_triggered:
-        await target_channel.send("Twister already triggered this round!")
+    global twister_mode, twister_cooldown, twister_triggered, target_channel
+
+    if twister_cooldown:
+        await target_channel.send("Twister already triggered recently! Please wait.")
         return
+    twister_cooldown = True
+    twister_mode = True
     twister_triggered = True
+
     twisters = load_word_list("twisters")
     if not twisters:
         await target_channel.send("No tongue twisters found.")
+        twister_mode = False
+        twister_cooldown = False
         return
 
-    twister_mode = True
     first_twister = random.choice(twisters)
     await target_channel.send("🎤 Here comes a twister!")
     await target_channel.send(f"🔁 {first_twister}")
 
-    # Start countdown bar
     countdown = 30
     bar_length = 30
     full_block = "■"
     empty_block = " "
     bar = full_block * bar_length
-    msg = await target_channel.send(f"🎤 Time left: [{bar}] {countdown}s")
+
+    try:
+        msg = await target_channel.send(f"🎤 Time left: [{bar}] {countdown}s")
+    except Exception as e:
+        print(f"Failed to send countdown message: {e}")
+        twister_mode = False
+        twister_cooldown = False
+        return
 
     for elapsed in range(countdown):
         await asyncio.sleep(1)
         remaining = countdown - elapsed - 1
-        filled_length = remaining
+        filled_length = max(remaining, 0)
         empty_length = bar_length - filled_length
         bar = full_block * filled_length + empty_block * empty_length
-        await msg.edit(content=f"🎤 Time left: [{bar}] {remaining}s")
+        try:
+            await msg.edit(content=f"🎤 Time left: [{bar}] {remaining}s")
+        except Exception as e:
+            print(f"Failed to edit countdown message at {remaining}s: {e}")
 
     await target_channel.send("🎬 Back to the word drops...")
+
+    # Reset flags to allow normal word dropping again
     twister_mode = False
 
-async def word_round():
-    global word_type, used_words
+    # Cooldown to prevent immediate retrigger, but allow next round twister
+    # After 30 seconds cooldown, allow twister again
+    async def reset_cooldown():
+        await asyncio.sleep(30)
+        global twister_cooldown, twister_triggered
+        twister_cooldown = False
+        twister_triggered = False
 
+    asyncio.create_task(reset_cooldown())
+
+async def word_round():
+    global word_type, used_words, twister_mode
+
+    # If twister mode is active, skip word dropping (wait)
     if twister_mode:
-        # Twister active, skip this round
+        await asyncio.sleep(1)  # Just wait a bit before checking again
         return
 
     if word_type:
@@ -115,6 +144,7 @@ async def word_round():
     else:
         words = load_random_words()
 
+    # Filter out used words
     words = [w for w in words if w not in used_words]
 
     if not words:
@@ -137,14 +167,16 @@ async def word_round():
     words_dropped = 0
     while words_dropped < words_per_round and (asyncio.get_event_loop().time() - start_time < round_duration):
         if stop_signal.is_set() or twister_mode:
-            return
+            # If stopped or twister mode started, break early
+            break
         word = random.choice(words)
         used_words.add(word)
         await target_channel.send(f"🔹{word}🔹")
         words_dropped += 1
         await asyncio.sleep(interval)
 
-    await target_channel.send("**🔥 Sheesh, fire!! Time to pass the Metal! 🔁**")
+    if not twister_mode:
+        await target_channel.send("**🔥 Sheesh, fire!! Time to pass the Metal! 🔁**")
 
 # ---------- EVENTS ---------- #
 @client.event
@@ -158,7 +190,7 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    global word_type, active_session, target_channel, twister_mode, twister_triggered
+    global word_type, active_session, target_channel, twister_mode, twister_cooldown
     global words_per_round, round_duration, stop_signal, used_words
 
     if message.author == client.user:
@@ -166,6 +198,7 @@ async def on_message(message):
 
     content = message.content.lower()
 
+    # Delete command messages only if in target channel and start with '+'
     if message.channel.id == TARGET_CHANNEL_ID and content.startswith("+"):
         try:
             if message.channel.permissions_for(message.guild.me).manage_messages:
@@ -177,7 +210,6 @@ async def on_message(message):
         active_session = True
         stop_signal.clear()
         used_words.clear()
-        twister_triggered = False
         await message.channel.send("🎤 Starting word drop session...")
         while active_session:
             await word_round()
@@ -227,14 +259,20 @@ async def on_message(message):
             await message.channel.send("Usage: `+syllables 1` to `+syllables 12`")
 
     elif content.startswith("+twisters"):
-        await run_twisters_once()
+        if not twister_mode and not twister_cooldown:
+            stop_signal.set()  # stop any current round immediately
+            stop_signal.clear()  # immediately clear so word_round can resume after twister
+            # Run twister as a separate task so it doesn't block main loop
+            asyncio.create_task(run_twisters_once())
+        else:
+            await message.channel.send("Twister already active or cooling down, please wait.")
 
     elif content.startswith("+reset"):
         word_type = None
         twister_mode = False
+        twister_cooldown = False
         stop_signal.clear()
         used_words.clear()
-        twister_triggered = False
         await message.channel.send("Words reset ♻️")
 
     elif content.startswith("+wordcount"):
