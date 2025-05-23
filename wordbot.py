@@ -39,7 +39,9 @@ stop_signal = asyncio.Event()
 
 words_per_round = WORDS_PER_ROUND
 round_duration = ROUND_DURATION
-twister_used_this_round = False  # NEW: flag to limit to one twister per round
+
+pause_for_twister = False  # NEW
+twister_used_this_round = False  # NEW
 
 # ---------- UTILS ---------- #
 def load_word_list(word_type):
@@ -68,10 +70,14 @@ def load_random_words():
     print(f"Total random words loaded: {len(all_words)}")
     return all_words
 
+# ---------- MAIN ROUND ---------- #
 async def word_round():
     global word_type, used_words, twister_used_this_round
 
-    twister_used_this_round = False  # NEW: Reset twister flag at start of round
+    if pause_for_twister:
+        return
+
+    twister_used_this_round = False  # reset each round
 
     if twister_mode:
         await run_twisters()
@@ -82,7 +88,6 @@ async def word_round():
     else:
         words = load_random_words()
 
-    # Filter out used words
     words = [w for w in words if w not in used_words]
 
     if not words:
@@ -104,7 +109,7 @@ async def word_round():
 
     words_dropped = 0
     while words_dropped < words_per_round and (asyncio.get_event_loop().time() - start_time < round_duration):
-        if stop_signal.is_set():
+        if stop_signal.is_set() or pause_for_twister:
             return
         word = random.choice(words)
         used_words.add(word)
@@ -113,30 +118,6 @@ async def word_round():
         await asyncio.sleep(interval)
 
     await target_channel.send("**🔥 Sheesh, fire!! Time to pass the Metal! 🔁**")
-
-async def run_twisters():
-    global twister_mode, target_channel
-    twisters = load_word_list("twisters")
-    if not twisters:
-        await target_channel.send("No tongue twisters found.")
-        twister_mode = False
-        return
-
-    twister_mode = True
-    await target_channel.send("🎤 Starting Twister mode with automatic repeat!")
-
-    await asyncio.sleep(1)
-    first_twister = random.choice(twisters)
-    await target_channel.send(f"Here's a twister:\n{first_twister}")
-    await asyncio.sleep(150)
-
-    second_twister = random.choice([t for t in twisters if t != first_twister]) or first_twister
-    await target_channel.send(f"Here's another twister:\n{second_twister}")
-    await asyncio.sleep(60)
-
-    twister_mode = False
-    await target_channel.send("🎤 Resuming word drop session...")
-    await word_round()
 
 # ---------- EVENTS ---------- #
 @client.event
@@ -151,7 +132,8 @@ async def on_ready():
 @client.event
 async def on_message(message):
     global word_type, active_session, target_channel, twister_mode
-    global words_per_round, round_duration, stop_signal, used_words, twister_used_this_round
+    global words_per_round, round_duration, stop_signal, used_words
+    global pause_for_twister, twister_used_this_round
 
     if message.author == client.user:
         return
@@ -172,6 +154,7 @@ async def on_message(message):
         await message.channel.send("🎤 Starting word drop session...")
         while active_session:
             await word_round()
+            await asyncio.sleep(1)
 
     elif content.startswith("+stop"):
         if active_session:
@@ -220,21 +203,22 @@ async def on_message(message):
     elif content.startswith("+twisters"):
         if not active_session:
             await message.channel.send("No session is running. Start one with `+start`.")
-        elif twister_used_this_round:
-            await message.channel.send("🌀 A twister already dropped this round!")
+        elif twister_used_this_round or pause_for_twister:
+            await message.channel.send("🌀 A twister is already running!")
         else:
             twisters = load_word_list("twisters")
             if not twisters:
                 await message.channel.send("No tongue twisters found.")
             else:
                 twister_used_this_round = True
+                pause_for_twister = True
                 one_twister = random.choice(twisters)
-                await message.channel.send("🌀 Here comes a twister!")
+                await message.channel.send("🌀 Twister time! Spit this:")
                 await asyncio.sleep(1)
                 await message.channel.send(f"{one_twister}")
-                await message.channel.send("_30 seconds on the clock... spit it if you got it!_")
+                await message.channel.send("_30 seconds on the mic... GO!_")
                 await asyncio.sleep(30)
-                await message.channel.send("✅ Cooldown over. Let's keep it moving!")
+                pause_for_twister = False  # Resume automatically
 
     elif content.startswith("+reset"):
         word_type = None
