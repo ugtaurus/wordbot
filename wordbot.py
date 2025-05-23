@@ -257,12 +257,14 @@ async def on_message(message):
         await message.channel.send(f"🎯 Dropping rhymes for **{rhyme_name}**...")
 
         interval = round_duration / max(words_per_round, 1)
+        words_used = set()
         for _ in range(min(words_per_round, len(rhyme_words))):
-            word = random.choice(rhyme_words)
+            word = random.choice([w for w in rhyme_words if w not in words_used])
+            words_used.add(word)
             await message.channel.send(f"🔸{word}🔸")
             await asyncio.sleep(interval)
 
-        await message.channel.send("🎤 Rhyme round done! Want more? Type `+rhymes` again.")
+        await message.channel.send("**🔥 Sheesh, fire!! Time to pass the Metal! 🔁**")
 
 # ---------- RUN ---------- #
 client.run(TOKEN)
