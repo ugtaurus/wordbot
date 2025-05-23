@@ -78,16 +78,21 @@ async def run_twisters():
     twister_mode = True
     await target_channel.send("🎤 Here comes a twister!")
 
-    # Pick one twister only (non-repeating)
     twister = random.choice(twisters)
-    countdown_msg = await target_channel.send(f"{twister}\n\n🎤 Time left: [■■■■■■■■■■■■■■■■■■■■■■■■■■■■■] 30s")
+    countdown_msg = await target_channel.send(f"{twister}\n\n🎤 Time left: [■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■] 30s")
 
-    # 30s cooldown countdown bar, editing same message each second
-    for i in range(30, 0, -1):
-        bar_count = i
-        bar = "■" * bar_count + " " * (30 - bar_count)
-        await countdown_msg.edit(content=f"{twister}\n\n🎤 Time left: [{bar}] {i}s")
-        await asyncio.sleep(1)
+    await asyncio.sleep(1.0)
+
+    try:
+        for i in range(29, 0, -1):
+            if not twister_mode:
+                return
+            bar = "■" * i + " " * (30 - i)
+            await countdown_msg.edit(content=f"{twister}\n\n🎤 Time left: [{bar}] {i}s")
+            await asyncio.sleep(1)
+    except discord.errors.HTTPException as e:
+        print(f"⚠️ Failed to edit countdown message: {e}")
+        await target_channel.send("❌ Couldn't update the countdown.")
 
     twister_mode = False
     await target_channel.send("🎤 Twister time over, resuming word drops...")
@@ -96,7 +101,6 @@ async def word_round():
     global word_type, used_words
 
     if twister_mode:
-        # If twister mode is active, don't run word round
         return
 
     if word_type:
@@ -104,7 +108,6 @@ async def word_round():
     else:
         words = load_random_words()
 
-    # Filter out used words
     words = [w for w in words if w not in used_words]
 
     if not words:
@@ -119,23 +122,22 @@ async def word_round():
         await target_channel.send("No words found to drop.")
         return
 
-    await target_channel.send("Dropping words, _Lets L I F T⬇️_")
+    await target_channel.send("**🔥 Sheesh, fire!! Time to pass the Metal! 🔁**")
+    await asyncio.sleep(3)
+    await target_channel.send("Dropping words, _Lets L I F T📉_")
 
     start_time = asyncio.get_event_loop().time()
     interval = round_duration / max(words_per_round, 1)
 
     words_dropped = 0
     while words_dropped < words_per_round and (asyncio.get_event_loop().time() - start_time < round_duration):
-        if stop_signal.is_set() or twister_mode:
+        if stop_signal.is_set():
             return
         word = random.choice(words)
         used_words.add(word)
         await target_channel.send(f"🔹{word}🔹")
         words_dropped += 1
         await asyncio.sleep(interval)
-
-    await target_channel.send("**🔥 Sheesh, fire!! Time to pass the Metal! 🔁**")
-    await asyncio.sleep(5)  # brief pause before next round
 
 # ---------- EVENTS ---------- #
 @client.event
@@ -157,7 +159,6 @@ async def on_message(message):
 
     content = message.content.lower()
 
-    # Delete command messages only if in target channel and start with '+'
     if message.channel.id == TARGET_CHANNEL_ID and content.startswith("+"):
         try:
             if message.channel.permissions_for(message.guild.me).manage_messages:
@@ -219,8 +220,7 @@ async def on_message(message):
 
     elif content.startswith("+twisters"):
         if not twister_mode:
-            twister_mode = True
-            stop_signal.set()  # stop any current round immediately
+            stop_signal.set()
             await run_twisters()
 
     elif content.startswith("+reset"):
@@ -228,7 +228,7 @@ async def on_message(message):
         twister_mode = False
         stop_signal.clear()
         used_words.clear()
-        await message.channel.send("Words reset ♻️ — back to default mode.")
+        await message.channel.send("Words reset ♻️")
 
     elif content.startswith("+wordcount"):
         parts = content.split()
