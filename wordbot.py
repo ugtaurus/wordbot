@@ -70,7 +70,7 @@ def load_random_words():
     return all_words
 
 async def twister_countdown():
-    progress_msg = await target_channel.send("🎤 Time left: [■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ ] 30s")
+    progress_msg = await target_channel.send("🎤 Time left: [■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ ] 30s")
     total_seconds = 30
     blocks_total = 30
     for seconds_left in range(total_seconds, 0, -1):
@@ -124,7 +124,7 @@ async def word_round():
 
     if twister_mode:
         print("[DEBUG] Twister mode is ON, skipping word round.")
-        return  # twister runs separately in run_twisters
+        return
 
     if stop_signal.is_set():
         print("[DEBUG] Stop signal is set. Exiting word round.")
@@ -149,7 +149,7 @@ async def word_round():
         await target_channel.send("No words found to drop.")
         return
 
-    await target_channel.send("Dropping words, _Lets L I F T⬇️_")
+    await target_channel.send("Dropping words, _Lets L I F T🔻_")
 
     start_time = asyncio.get_event_loop().time()
     interval = round_duration / max(words_per_round, 1)
@@ -168,11 +168,10 @@ async def word_round():
     await target_channel.send("**🔥 Sheesh, fire!! Time to pass the Metal! 🔁**")
     await asyncio.sleep(5)
 
-# New background word drop loop task
 async def word_drop_loop():
     while active_session:
         if stop_signal.is_set() or twister_mode:
-            await asyncio.sleep(1)  # Pause while stopped or in twister mode
+            await asyncio.sleep(1)
             continue
         await word_round()
 
@@ -264,8 +263,8 @@ async def on_message(message):
             await message.channel.send("A twister round is already running. Please wait.")
             return
         twister_mode = True
-        stop_signal.set()  # pause word drop rounds
-        await run_twisters()  # after done, clears stop_signal and twister_mode
+        stop_signal.set()
+        await run_twisters()
 
     elif content.startswith("+reset"):
         active_session = False
@@ -293,6 +292,40 @@ async def on_message(message):
             await message.channel.send(f"Round duration set to **{round_duration} seconds**.")
         else:
             await message.channel.send("Usage: `+wordtime 30`")
+
+    elif content.startswith("+rhymes"):
+        rhyme_dir = os.path.join(WORD_BANK_PATH, "rhymes")
+        all_rhyme_files = [
+            f for f in os.listdir(rhyme_dir)
+            if f.startswith("rhymes ") and f.endswith(".txt")
+        ]
+
+        if not all_rhyme_files:
+            await message.channel.send("❌ No rhyme files found in `wordbanks/rhymes`.")
+            return
+
+        chosen_file = random.choice(all_rhyme_files)
+        rhyme_path = os.path.join(rhyme_dir, chosen_file)
+
+        with open(rhyme_path, "r", encoding="utf-8") as f:
+            rhyme_words = [line.strip() for line in f if line.strip()]
+
+        if not rhyme_words:
+            await message.channel.send(f"⚠️ File `{chosen_file}` is empty.")
+            return
+
+        rhyme_name = chosen_file.replace("rhymes ", "").replace(".txt", "")
+        await message.channel.send(f"🎯 Dropping rhymes for **{rhyme_name}**...")
+
+        start_time = asyncio.get_event_loop().time()
+        interval = round_duration / max(words_per_round, 1)
+
+        for i in range(min(words_per_round, len(rhyme_words))):
+            word = random.choice(rhyme_words)
+            await message.channel.send(f"🔹{word}🔹")
+            await asyncio.sleep(interval)
+
+        await message.channel.send("🎤 Rhyme round done! Want more? Type `+rhymes` again.")
 
 # ---------- RUN ---------- #
 client.run(TOKEN)
