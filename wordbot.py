@@ -37,7 +37,6 @@ used_words = set()
 stop_signal = asyncio.Event()
 words_per_round = WORDS_PER_ROUND
 round_duration = ROUND_DURATION
-skip_lift_message = False  # NEW FLAG to skip "dropping words, lets lift" after twister
 
 # ---------- UTILS ---------- #
 def load_word_list(word_type):
@@ -85,7 +84,7 @@ async def twister_countdown():
         pass
 
 async def run_twisters():
-    global twister_mode, target_channel, skip_lift_message
+    global twister_mode, target_channel
     twisters = load_word_list("twisters")
     if not twisters:
         await target_channel.send("No tongue twisters found.")
@@ -101,11 +100,10 @@ async def run_twisters():
     await twister_countdown()
 
     twister_mode = False
-    skip_lift_message = True  # set flag to skip "dropping words lets lift" message after twister
     await target_channel.send("🎤 Resuming word drop session...")
 
 async def word_round():
-    global word_type, used_words, skip_lift_message
+    global word_type, used_words
 
     if twister_mode:
         await run_twisters()
@@ -130,11 +128,7 @@ async def word_round():
         await target_channel.send("No words found to drop.")
         return
 
-    # Only say this if NOT skipping (like after twister)
-    if not skip_lift_message:
-        await target_channel.send("Dropping words, _Lets L I F T⬇️_")
-    else:
-        skip_lift_message = False  # reset flag after skipping once
+    await target_channel.send("Dropping words, _Lets L I F T⬇️_")
 
     start_time = asyncio.get_event_loop().time()
     interval = round_duration / max(words_per_round, 1)
@@ -151,7 +145,7 @@ async def word_round():
 
     await target_channel.send("**🔥 Sheesh, fire!! Time to pass the Metal! 🔁**")
 
-    # Small pause here before next round starts
+    # <<<< Small pause here before next round starts >>>>
     await asyncio.sleep(5)  # 5-second wait for rapper to sum up
 
 # ---------- EVENTS ---------- #
