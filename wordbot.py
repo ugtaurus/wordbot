@@ -167,7 +167,7 @@ async def word_round():
             return
         word = random.choice(words)
         used_words.add(word)
-        await target_channel.send(f"🔸{word}🔸")
+        await target_channel.send(f"🔹{word}🔹")
         await asyncio.sleep(interval)
 
     await target_channel.send("**🔥 Sheesh, fire!! Time to pass the Metal! 🔁**")
