@@ -33,6 +33,7 @@ word_type = None
 active_session = False
 target_channel = None
 twister_mode = False
+twister_active = False  # <-- Added: to prevent overlapping twister rounds
 used_words = set()
 stop_signal = asyncio.Event()
 words_per_round = WORDS_PER_ROUND
@@ -85,21 +86,33 @@ async def twister_countdown():
         pass
 
 async def run_twisters():
-    global twister_mode, target_channel
+    global twister_mode, target_channel, twister_active
+    if twister_active:
+        await target_channel.send("A twister round is already active! Please wait for it to finish.")
+        return
+
+    twister_active = True
+
     twisters = load_word_list("twisters")
     if not twisters:
         await target_channel.send("No tongue twisters found.")
         twister_mode = False
+        twister_active = False
         return
 
     twister_mode = True
     await target_channel.send("Here comes a twister!")
-    twister = random.choice(twisters)
-    await target_channel.send(twister)
 
-    await twister_countdown()
+    # Drop 3 twisters, 10 seconds apart
+    for _ in range(3):
+        twister = random.choice(twisters)
+        await target_channel.send(twister)
+        await twister_countdown()
 
     twister_mode = False
+    twister_active = False
+    stop_signal.clear()  # Clear stop signal to resume normal rounds
+
     await target_channel.send("🎤 Resuming word drop session...")
 
 async def word_round():
@@ -109,8 +122,7 @@ async def word_round():
 
     if twister_mode:
         print("[DEBUG] Twister mode is ON, skipping word round.")
-        await run_twisters()
-        return
+        return  # twister runs separately in run_twisters
 
     if stop_signal.is_set():
         print("[DEBUG] Stop signal is set. Exiting word round.")
@@ -234,6 +246,9 @@ async def on_message(message):
             await message.channel.send("Usage: `+syllables 1` to `+syllables 12`")
 
     elif content.startswith("+twisters"):
+        if twister_active:
+            await message.channel.send("A twister round is already running. Please wait.")
+            return
         twister_mode = True
         stop_signal.set()
         await run_twisters()
