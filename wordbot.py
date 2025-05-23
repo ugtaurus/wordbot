@@ -37,6 +37,7 @@ used_words = set()
 stop_signal = asyncio.Event()
 words_per_round = WORDS_PER_ROUND
 round_duration = ROUND_DURATION
+word_lists = {}
 
 # ---------- UTILS ---------- #
 def load_word_list(word_type):
@@ -96,7 +97,6 @@ async def run_twisters():
     twister = random.choice(twisters)
     await target_channel.send(twister)
 
-    # Show 30-second countdown during twister reciting
     await twister_countdown()
 
     twister_mode = False
@@ -105,8 +105,15 @@ async def run_twisters():
 async def word_round():
     global word_type, used_words
 
+    print(f"[DEBUG] Entered word_round(). twister_mode={twister_mode}, stop_signal={stop_signal.is_set()}")
+
     if twister_mode:
+        print("[DEBUG] Twister mode is ON, skipping word round.")
         await run_twisters()
+        return
+
+    if stop_signal.is_set():
+        print("[DEBUG] Stop signal is set. Exiting word round.")
         return
 
     if word_type:
@@ -136,6 +143,7 @@ async def word_round():
     words_dropped = 0
     while words_dropped < words_per_round and (asyncio.get_event_loop().time() - start_time < round_duration):
         if stop_signal.is_set():
+            print("[DEBUG] Stop signal triggered during word drop.")
             return
         word = random.choice(words)
         used_words.add(word)
@@ -144,9 +152,7 @@ async def word_round():
         await asyncio.sleep(interval)
 
     await target_channel.send("**🔥 Sheesh, fire!! Time to pass the Metal! 🔁**")
-
-    # <<<< Small pause here before next round starts >>>>
-    await asyncio.sleep(5)  # 5-second wait for rapper to sum up
+    await asyncio.sleep(5)
 
 # ---------- EVENTS ---------- #
 @client.event
@@ -233,10 +239,12 @@ async def on_message(message):
         await run_twisters()
 
     elif content.startswith("+reset"):
+        active_session = False
         word_type = None
         twister_mode = False
         stop_signal.clear()
         used_words.clear()
+        print("🧹 Full reset: active_session=False, twister_mode=False, stop_signal cleared.")
         await message.channel.send("Words reset ♻️")
 
     elif content.startswith("+wordcount"):
