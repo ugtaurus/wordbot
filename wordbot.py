@@ -33,10 +33,8 @@ word_type = None
 active_session = False
 target_channel = None
 twister_mode = False
-word_lists = {}
 used_words = set()
 stop_signal = asyncio.Event()
-
 words_per_round = WORDS_PER_ROUND
 round_duration = ROUND_DURATION
 
@@ -67,6 +65,24 @@ def load_random_words():
     print(f"Total random words loaded: {len(all_words)}")
     return all_words
 
+async def twister_countdown():
+    progress_msg = await target_channel.send("🎤 Time left: [■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ ] 30s")
+    total_seconds = 30
+    blocks_total = 30
+    for seconds_left in range(total_seconds, 0, -1):
+        blocks_filled = seconds_left
+        blocks_empty = blocks_total - blocks_filled
+        bar = '■' * blocks_filled + ' ' * blocks_empty
+        try:
+            await progress_msg.edit(content=f"🎤 Time left: [{bar}] {seconds_left}s")
+        except Exception:
+            pass
+        await asyncio.sleep(1)
+    try:
+        await progress_msg.delete()
+    except Exception:
+        pass
+
 async def run_twisters():
     global twister_mode, target_channel
     twisters = load_word_list("twisters")
@@ -76,31 +92,21 @@ async def run_twisters():
         return
 
     twister_mode = True
-    await target_channel.send("🎤 Here comes a twister!")
-
+    await target_channel.send("Here comes a twister!")
     twister = random.choice(twisters)
-    countdown_msg = await target_channel.send(f"{twister}\n\n🎤 Time left: [■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■] 30s")
+    await target_channel.send(twister)
 
-    await asyncio.sleep(1.0)
-
-    try:
-        for i in range(29, 0, -1):
-            if not twister_mode:
-                return
-            bar = "■" * i + " " * (30 - i)
-            await countdown_msg.edit(content=f"{twister}\n\n🎤 Time left: [{bar}] {i}s")
-            await asyncio.sleep(1)
-    except discord.errors.HTTPException as e:
-        print(f"⚠️ Failed to edit countdown message: {e}")
-        await target_channel.send("❌ Couldn't update the countdown.")
+    # Show 30-second countdown during twister reciting
+    await twister_countdown()
 
     twister_mode = False
-    await target_channel.send("🎤 Twister time over, resuming word drops...")
+    await target_channel.send("🎤 Resuming word drop session...")
 
 async def word_round():
     global word_type, used_words
 
     if twister_mode:
+        await run_twisters()
         return
 
     if word_type:
@@ -122,9 +128,7 @@ async def word_round():
         await target_channel.send("No words found to drop.")
         return
 
-    await target_channel.send("**🔥 Sheesh, fire!! Time to pass the Metal! 🔁**")
-    await asyncio.sleep(3)
-    await target_channel.send("Dropping words, _Lets L I F T📉_")
+    await target_channel.send("Dropping words, _Lets L I F T⬇️_")
 
     start_time = asyncio.get_event_loop().time()
     interval = round_duration / max(words_per_round, 1)
@@ -138,6 +142,11 @@ async def word_round():
         await target_channel.send(f"🔹{word}🔹")
         words_dropped += 1
         await asyncio.sleep(interval)
+
+    await target_channel.send("**🔥 Sheesh, fire!! Time to pass the Metal! 🔁**")
+
+    # <<<< Small pause here before next round starts >>>>
+    await asyncio.sleep(5)  # 5-second wait for rapper to sum up
 
 # ---------- EVENTS ---------- #
 @client.event
@@ -219,9 +228,9 @@ async def on_message(message):
             await message.channel.send("Usage: `+syllables 1` to `+syllables 12`")
 
     elif content.startswith("+twisters"):
-        if not twister_mode:
-            stop_signal.set()
-            await run_twisters()
+        twister_mode = True
+        stop_signal.set()
+        await run_twisters()
 
     elif content.startswith("+reset"):
         word_type = None
