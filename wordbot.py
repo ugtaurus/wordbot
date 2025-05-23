@@ -188,7 +188,7 @@ async def on_ready():
 @client.event
 async def on_message(message):
     global word_type, active_session, target_channel, twister_mode
-    global words_per_round, round_duration, stop_signal, used_words, word_drop_task
+    global words_per_round, round_duration, stop_signal, used_words, word_drop_task, twister_active
 
     if message.author == client.user:
         return
@@ -270,6 +270,7 @@ async def on_message(message):
         active_session = False
         word_type = None
         twister_mode = False
+        twister_active = False
         stop_signal.clear()
         used_words.clear()
         if word_drop_task:
@@ -322,7 +323,7 @@ async def on_message(message):
 
         for i in range(min(words_per_round, len(rhyme_words))):
             word = random.choice(rhyme_words)
-            await message.channel.send(f"🔹{word}🔹")
+            await message.channel.send(f"🔸{word}🔸")
             await asyncio.sleep(interval)
 
         await message.channel.send("🎤 Rhyme round done! Want more? Type `+rhymes` again.")
