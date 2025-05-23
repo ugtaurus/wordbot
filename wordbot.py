@@ -43,11 +43,11 @@ word_lists = {}
 word_drop_task = None  # Background task handle for word drop loop
 
 # ---------- UTILS ---------- #
-def load_word_list(word_type):
-    if word_type in word_lists:
-        return word_lists[word_type]
+def load_word_list(word_type_param):
+    if word_type_param in word_lists:
+        return word_lists[word_type_param]
 
-    filename = word_type + ".txt"
+    filename = word_type_param + ".txt"
     file_path = os.path.join(WORD_BANK_PATH, filename)
     if not os.path.isfile(file_path):
         print(f"⚠️ Word file not found: {filename}")
@@ -56,7 +56,7 @@ def load_word_list(word_type):
     with open(file_path, "r", encoding="utf-8") as f:
         words = [line.strip() for line in f if line.strip()]
     random.shuffle(words)
-    word_lists[word_type] = words
+    word_lists[word_type_param] = words
     print(f"Loaded {len(words)} words from {filename}")
     return words
 
@@ -119,6 +119,7 @@ async def run_twisters():
 
 async def word_round():
     global word_type, used_words
+    # globals must be at top of function before any assignment
 
     print(f"[DEBUG] Entered word_round(). twister_mode={twister_mode}, stop_signal={stop_signal.is_set()}")
 
@@ -149,7 +150,7 @@ async def word_round():
         await target_channel.send("No words found to drop.")
         return
 
-    await target_channel.send("Dropping words, _Lets L I F T🔻_")
+    await target_channel.send("Dropping words, _Lets L I F T 🔻_")
 
     start_time = asyncio.get_event_loop().time()
     interval = round_duration / max(words_per_round, 1)
@@ -169,6 +170,7 @@ async def word_round():
     await asyncio.sleep(5)
 
 async def word_drop_loop():
+    global active_session
     while active_session:
         if stop_signal.is_set() or twister_mode:
             await asyncio.sleep(1)
@@ -184,10 +186,6 @@ async def on_ready():
         print(f"Logged in as {client.user}! Posting words in channel: {target_channel.name}")
     else:
         print("⚠️ Bot is logged in, but the channel was not found. Check the channel ID and bot permissions.")
-
-    # Delay startup to avoid rate limits
-    await asyncio.sleep(10)
-    print("Startup delay complete. Ready to run sessions.")
 
 @client.event
 async def on_message(message):
@@ -213,6 +211,7 @@ async def on_message(message):
             active_session = True
             stop_signal.clear()
             used_words.clear()
+            word_type = None  # reset to default on start
             await message.channel.send("🎤 Starting word drop session...")
             word_drop_task = asyncio.create_task(word_drop_loop())
 
@@ -263,6 +262,7 @@ async def on_message(message):
             await message.channel.send("Usage: `+syllables 1` to `+syllables 12`")
 
     elif content.startswith("+twisters"):
+        global twister_active
         if twister_active:
             await message.channel.send("A twister round is already running. Please wait.")
             return
@@ -271,17 +271,16 @@ async def on_message(message):
         await run_twisters()
 
     elif content.startswith("+reset"):
-        active_session = False
-        word_type = None
-        twister_mode = False
+        # reset everything to default but do NOT stop the bot itself
+        active_session = True
         stop_signal.clear()
         used_words.clear()
-        if word_drop_task:
-            word_drop_task.cancel()
-        # Reset settings to default
-        words_per_round = WORDS_PER_ROUND
-        round_duration = ROUND_DURATION
-        await message.channel.send("Words reset ♻️")
+        word_type = None
+        twister_mode = False
+        await message.channel.send("Words reset ♻️ — ready for a fresh start.")
+        # if word_drop_task was cancelled before, restart loop
+        if word_drop_task and word_drop_task.done():
+            word_drop_task = asyncio.create_task(word_drop_loop())
 
     elif content.startswith("+wordcount"):
         parts = content.split()
@@ -301,26 +300,76 @@ async def on_message(message):
 
     elif content.startswith("+rhymes"):
         global word_type
-        # Don't interrupt the current round, set word_type to a rhyme file to load next round
-        rhyme_dir = WORD_BANK_PATH
-        all_rhyme_files = [
-            f for f in os.listdir(rhyme_dir)
+        # Switch to rhyme mode next round, but do not interrupt current
+        rhyme_files = [
+            f for f in os.listdir(WORD_BANK_PATH)
             if f.startswith("rhymes ") and f.endswith(".txt")
         ]
 
-        if not all_rhyme_files:
+        if not rhyme_files:
             await message.channel.send(f"❌ No rhyme files found in `{WORD_BANK_PATH}`.")
             return
 
-        # Pick a rhyme file that is different from the last chosen (if possible)
-        rhyme_files_available = [f for f in all_rhyme_files if f != word_type]
-        if not rhyme_files_available:
-            rhyme_files_available = all_rhyme_files
+        # Choose a rhyme file not recently used
+        global last_rhyme_file
+        if 'last_rhyme_file' not in globals():
+            last_rhyme_file = None
 
-        chosen_file = random.choice(rhyme_files_available)
-        word_type = chosen_file[:-4]  # Remove .txt extension to set as current word_type
-        used_words.clear()
-        await message.channel.send("🎯 Rhyme round queued! It will start in the next round.")
+        candidates = [f for f in rhyme_files if f != last_rhyme_file]
+        if not candidates:
+            candidates = rhyme_files  # fallback if all used
 
-# ---------- RUN ---------- #
-client.run(TOKEN)
+        chosen_file = random.choice(candidates)
+        last_rhyme_file = chosen_file
+        rhyme_path = os.path.join(WORD_BANK_PATH, chosen_file)
+
+        with open(rhyme_path, "r", encoding="utf-8") as f:
+            rhyme_words = [line.strip() for line in f if line.strip()]
+
+        if not rhyme_words:
+            await message.channel.send(f"⚠️ File `{chosen_file}` is empty.")
+            return
+
+        # Set global state to rhyme mode for next round
+        word_type = "rhymes"
+        word_lists["rhymes"] = rhyme_words
+        stop_signal.set()  # pause current rounds so rhyme round can start cleanly
+
+        await message.channel.send("Next round will drop rhyme words 🔸")  # small orange diamond
+
+        # Wait a bit before starting rhyme round to avoid interrupting
+        await asyncio.sleep(5)
+
+        # Run rhyme round independently
+        await run_rhyme_round()
+
+        # After rhyme round, reset
+        stop_signal.clear()
+        word_type = None
+        await message.channel.send("Back to normal words after rhyme round.")
+
+async def run_rhyme_round():
+    global target_channel, word_lists
+
+    rhyme_words = word_lists.get("rhymes", [])
+    if not rhyme_words:
+        await target_channel.send("No rhyme words loaded for rhyme round.")
+        return
+
+    await target_channel.send("🔥 Rhyme round starting... 🔥")
+
+    words_dropped = 0
+    for word in rhyme_words:
+        if words_dropped >= words_per_round:
+            break
+        await target_channel.send(f"🔸{word}🔸")  # small orange diamond for rhyme words
+        words_dropped += 1
+        await asyncio.sleep(round_duration / max(words_per_round, 1))
+
+    await target_channel.send("🎉 Rhyme round ended.")
+
+# ---------- MAIN ---------- #
+try:
+    client.run(TOKEN)
+except Exception as e:
+    print(f"Error running client: {e}")
