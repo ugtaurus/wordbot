@@ -29,8 +29,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 
-# Session states and control
-word_type = None  # e.g. "nouns", "adjectives", "syllables 3" or None = random mix
+word_type = None
 active_session = False
 target_channel = None
 used_words = set()
@@ -40,7 +39,6 @@ round_duration = ROUND_DURATION
 
 word_lists = {}
 
-# Control for rounds and queued rhyme round
 current_task = None
 queue_rhyme_round = False
 queued_rhyme_file = None
@@ -108,7 +106,6 @@ async def word_round():
             return
         word = random.choice(words)
         used_words.add(word)
-        # Normal words use small blue diamond emoji 🔹
         await target_channel.send(f"🔹{word}🔹")
         words_dropped += 1
         await asyncio.sleep(interval)
@@ -116,10 +113,8 @@ async def word_round():
     await target_channel.send("**🔥 Sheesh, fire!! Time to pass the Metal! 🔁**")
     await asyncio.sleep(5)
 
-    # After normal round, if a rhyme round was queued, run it now
     if queue_rhyme_round and queued_rhyme_file:
         await rhyme_round(queued_rhyme_file)
-        # Reset rhyme queue after finishing
         clear_rhyme_queue()
 
 async def rhyme_round(rhyme_file):
@@ -138,9 +133,8 @@ async def rhyme_round(rhyme_file):
     start_time = asyncio.get_event_loop().time()
     interval = round_duration / max(words_per_round, 1)
 
-    for i in range(min(words_per_round, len(rhyme_words))):
+    for _ in range(min(words_per_round, len(rhyme_words))):
         word = random.choice(rhyme_words)
-        # Rhymes rounds use small orange diamond 🔸
         await target_channel.send(f"🔸{word}🔸")
         await asyncio.sleep(interval)
 
@@ -213,7 +207,6 @@ async def on_message(message):
             await message.channel.send("No active session to stop.")
 
     elif content.startswith("+reset"):
-        # Reset all filters and states but keep session running if active
         word_type = None
         clear_rhyme_queue()
         used_words.clear()
@@ -278,8 +271,6 @@ async def on_message(message):
             await message.channel.send("❌ No rhyme word files found.")
             return
 
-        # Pick a rhyme file different from last queued one, if possible
-        global queued_rhyme_file
         available_files = [f for f in rhyme_files if f != queued_rhyme_file]
         if not available_files:
             available_files = rhyme_files
@@ -289,7 +280,6 @@ async def on_message(message):
         queue_rhyme_round = True
         await message.channel.send("🎯 Rhyme round queued. It will start after the current round finishes.")
 
-    # If no command matches and session not active, remind user to start
     elif content.startswith("+") and not active_session:
         await message.channel.send("No active session. Use `+start` to begin word drops.")
 
