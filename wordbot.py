@@ -43,6 +43,10 @@ current_task = None
 queue_rhyme_round = False
 queued_rhyme_file = None
 
+queue_persistent_rhyme_mode = False
+persistent_rhyme_files_used = set()
+rhyme_mode_first_round = True
+
 # ---------- UTILS ---------- #
 def load_word_list(word_type):
     if word_type in word_lists:
@@ -72,8 +76,26 @@ def load_random_words():
 
 async def word_round():
     global word_type, used_words, queue_rhyme_round, queued_rhyme_file
+    global queue_persistent_rhyme_mode, persistent_rhyme_files_used, rhyme_mode_first_round
 
     if stop_signal.is_set():
+        return
+
+    if queue_persistent_rhyme_mode:
+        rhyme_files = [f for f in os.listdir(WORD_BANK_PATH) if f.startswith("rhymes") and f.endswith(".txt")]
+        available_files = [f for f in rhyme_files if f not in persistent_rhyme_files_used]
+        if not available_files:
+            persistent_rhyme_files_used.clear()
+            available_files = rhyme_files
+
+        chosen_file = random.choice(available_files)
+        persistent_rhyme_files_used.add(chosen_file)
+        await rhyme_round(chosen_file, persistent_mode=True)
+        return
+
+    if queue_rhyme_round and queued_rhyme_file:
+        await rhyme_round(queued_rhyme_file, persistent_mode=False)
+        clear_rhyme_queue()
         return
 
     if word_type:
@@ -95,7 +117,7 @@ async def word_round():
         await target_channel.send("No words found to drop.")
         return
 
-    await target_channel.send("Dropping words, _Lets L I F T🔹_")
+    await target_channel.send("Dropping words, Lets `L I F T` :man_lifting_weights:")
 
     start_time = asyncio.get_event_loop().time()
     interval = round_duration / max(words_per_round, 1)
@@ -110,15 +132,11 @@ async def word_round():
         words_dropped += 1
         await asyncio.sleep(interval)
 
-    await target_channel.send("**🔥 Sheesh, fire!! Time to pass the Metal! 🔁**")
+    await target_channel.send("**:hotsprings: Sheesh, fire!! Time to pass the Metal! 🔁**")
     await asyncio.sleep(5)
 
-    if queue_rhyme_round and queued_rhyme_file:
-        await rhyme_round(queued_rhyme_file)
-        clear_rhyme_queue()
-
-async def rhyme_round(rhyme_file):
-    global words_per_round, round_duration, target_channel
+async def rhyme_round(rhyme_file, persistent_mode=False):
+    global words_per_round, round_duration, target_channel, rhyme_mode_first_round
 
     file_path = os.path.join(WORD_BANK_PATH, rhyme_file)
     with open(file_path, "r", encoding="utf-8") as f:
@@ -128,7 +146,16 @@ async def rhyme_round(rhyme_file):
         await target_channel.send("⚠️ Rhyme file was empty.")
         return
 
-    await target_channel.send("🎯 Dropping rhymes!")
+    if persistent_mode:
+        if rhyme_mode_first_round:
+            await target_channel.send("🎯 Dropping rhymes!")
+            rhyme_mode_first_round = False
+        else:
+            await target_channel.send("**More rhymes loading:⬇️ **")
+    else:
+        await target_channel.send("**🎯 Dropping rhymes!**")
+
+    await asyncio.sleep(2)
 
     start_time = asyncio.get_event_loop().time()
     interval = round_duration / max(words_per_round, 1)
@@ -138,7 +165,8 @@ async def rhyme_round(rhyme_file):
         await target_channel.send(f"🔸{word}🔸")
         await asyncio.sleep(interval)
 
-    await target_channel.send("🎤 Rhyme round done! Back to normal words...")
+    if not persistent_mode:
+        await target_channel.send("🎤 Rhyme round done! Back to normal words...")
 
 def clear_rhyme_queue():
     global queue_rhyme_round, queued_rhyme_file
@@ -147,12 +175,10 @@ def clear_rhyme_queue():
 
 async def word_drop_loop():
     global active_session, stop_signal
-
     while active_session:
         if stop_signal.is_set():
             await asyncio.sleep(1)
             continue
-
         await word_round()
 
 # ---------- EVENTS ---------- #
@@ -170,6 +196,7 @@ async def on_message(message):
     global word_type, active_session, target_channel
     global words_per_round, round_duration, stop_signal, used_words
     global queue_rhyme_round, queued_rhyme_file, current_task
+    global queue_persistent_rhyme_mode, persistent_rhyme_files_used, rhyme_mode_first_round
 
     if message.author == client.user:
         return
@@ -191,8 +218,20 @@ async def on_message(message):
             stop_signal.clear()
             used_words.clear()
             clear_rhyme_queue()
+            queue_persistent_rhyme_mode = False
+            persistent_rhyme_files_used.clear()
+            rhyme_mode_first_round = True
             word_type = None
-            await message.channel.send("🎤 Starting word drop session...")
+
+            countdown_message = await message.channel.send("**🎤 Starting word drop session in... `3`**")
+            await asyncio.sleep(1)
+            await countdown_message.edit(content="**🎤 Starting word drop session in... `2`**")
+            await asyncio.sleep(1)
+            await countdown_message.edit(content="**🎤 Starting word drop session in... `1`**")
+            await asyncio.sleep(1)
+            await countdown_message.edit(content="**🎤 Starting word drop session in... `GO!`**")
+            await asyncio.sleep(0.5)
+
             current_task = asyncio.create_task(word_drop_loop())
 
     elif content.startswith("+stop"):
@@ -200,42 +239,53 @@ async def on_message(message):
             active_session = False
             stop_signal.set()
             clear_rhyme_queue()
+            queue_persistent_rhyme_mode = False
+            persistent_rhyme_files_used.clear()
+            rhyme_mode_first_round = True
             if current_task:
                 current_task.cancel()
-            await message.channel.send("🛑 Word drop session force-stopped.")
+                try:
+                    await current_task
+                except asyncio.CancelledError:
+                    pass
+                current_task = None
+            await message.channel.send("🚓 Word drop session force-stopped.")
         else:
             await message.channel.send("No active session to stop.")
 
     elif content.startswith("+reset"):
         word_type = None
         clear_rhyme_queue()
-        used_words.clear()
         stop_signal.clear()
-        await message.channel.send("♻️ Word drop session reset to default filters.")
+        used_words.clear()
+        queue_persistent_rhyme_mode = False
+        persistent_rhyme_files_used.clear()
+        rhyme_mode_first_round = True
+        await message.channel.send("_♻️ Words reset_")
 
     elif content.startswith("+nouns"):
         word_type = "nouns"
-        await message.channel.send("Loading **nouns** in next round...")
+        await message.channel.send("_Loading **nouns** in next round..._")
 
     elif content.startswith("+verbs"):
         word_type = "verbs"
-        await message.channel.send("Loading **verbs** in next round...")
+        await message.channel.send("_Loading **verbs** in next round..._")
 
     elif content.startswith("+adjectives"):
         word_type = "adjectives"
-        await message.channel.send("Loading **adjectives** in next round...")
+        await message.channel.send("_Loading **adjectives** in next round..._")
 
     elif content.startswith("+adverbs"):
         word_type = "adverbs"
-        await message.channel.send("Loading **adverbs** in next round...")
+        await message.channel.send("_Loading **adverbs** in next round..._")
 
     elif content.startswith("+prepositions"):
         word_type = "prepositions"
-        await message.channel.send("Loading **prepositions** in next round...")
+        await message.channel.send("_Loading **prepositions** in next round..._")
 
     elif content.startswith("+conjunctions"):
         word_type = "conjunctions"
-        await message.channel.send("Loading **conjunctions** in next round...")
+        await message.channel.send("_Loading **conjunctions** in next round..._")
 
     elif content.startswith("+syllables"):
         parts = content.split()
@@ -243,7 +293,7 @@ async def on_message(message):
             syll_num = parts[1]
             if 1 <= int(syll_num) <= 12:
                 word_type = f"syllables {syll_num}"
-                await message.channel.send(f"Loading words with **{syll_num} syllable(s)** in next round...")
+                await message.channel.send(f"_Loading **{syll_num} syllable(s)** words in next round..._")
             else:
                 await message.channel.send("Please specify syllables between 1 and 12.")
         else:
@@ -278,10 +328,59 @@ async def on_message(message):
         chosen_file = random.choice(available_files)
         queued_rhyme_file = chosen_file
         queue_rhyme_round = True
-        await message.channel.send("🎯 Rhyme round queued. It will start after the current round finishes.")
+        await message.channel.send("Rhyme round queued!")
 
-    elif content.startswith("+") and not active_session:
-        await message.channel.send("No active session. Use `+start` to begin word drops.")
+    elif content.startswith("+rhyme mode"):
+        rhyme_files = [f for f in os.listdir(WORD_BANK_PATH) if f.startswith("rhymes") and f.endswith(".txt")]
+        if not rhyme_files:
+            await message.channel.send("❌ No rhyme word files found.")
+            return
 
-# ---------- RUN ---------- #
-#client.run(TOKEN)
+        if queue_persistent_rhyme_mode:
+            await message.channel.send("Rhyme mode is already active.")
+            return
+
+        queue_persistent_rhyme_mode = True
+        persistent_rhyme_files_used.clear()
+        await message.channel.send("Rhyme Mode startin' next round.")
+
+    elif content.startswith("+twisters"):
+        if not active_session:
+            await message.channel.send("No active session to interrupt with tongue twisters.")
+            return
+
+        stop_signal.set()
+
+        def build_flame_bar(seconds):
+            flames = seconds // 5
+            dashes = 6 - flames
+            return f"|{'🔥' * flames}{'-' * dashes}|"
+
+        async def run_twister(twister_text):
+            msg = await message.channel.send(f"**👅Twister Time!**\n_{twister_text}_")
+            for second in range(1, 31):
+                bar = build_flame_bar(second)
+                # Box the second number like the +start countdown:
+                number_box = f"`{second}`" if second < 30 else "`30`"
+                await asyncio.sleep(1)
+                await msg.edit(content=f"**👅Twister Time!**\n_{twister_text}_\n{bar} {number_box}")
+
+        twisters = [
+            "She sells sea shells by the sea shore.",
+            "How much wood would a woodchuck chuck if a woodchuck could chuck wood?"
+        ]
+
+        if current_task:
+            current_task.cancel()
+            try:
+                await current_task
+            except asyncio.CancelledError:
+                pass
+
+        for twister in twisters:
+            await run_twister(twister)
+
+        stop_signal.clear()
+        current_task = asyncio.create_task(word_drop_loop())
+
+client.run(TOKEN)
