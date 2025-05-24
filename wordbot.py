@@ -360,27 +360,44 @@ async def on_message(message):
             msg = await message.channel.send(f"**👅Twister Time!**\n_{twister_text}_")
             for second in range(1, 31):
                 bar = build_flame_bar(second)
-                # Box the second number like the +start countdown:
                 number_box = f"`{second}`" if second < 30 else "`30`"
                 await asyncio.sleep(1)
-                await msg.edit(content=f"**👅Twister Time!**\n_{twister_text}_\n{bar} {number_box}")
+                if second == 30:
+                    await msg.edit(content=f"**👅Twister Time!**\n_{twister_text}_\n{bar} 30s  \\`s i c k\\`")
+                else:
+                    await msg.edit(content=f"**👅Twister Time!**\n_{twister_text}_\n{bar} {number_box}")
 
-        twisters = [
-            "She sells sea shells by the sea shore.",
-            "How much wood would a woodchuck chuck if a woodchuck could chuck wood?"
-        ]
+        TWISTER_FOLDER = "twisters"
+        all_twisters = []
 
-        if current_task:
-            current_task.cancel()
-            try:
-                await current_task
-            except asyncio.CancelledError:
-                pass
+        if not os.path.isdir(TWISTER_FOLDER):
+            await message.channel.send("❌ `twisters/` folder not found.")
+            stop_signal.clear()
+            return
 
-        for twister in twisters:
-            await run_twister(twister)
+        for filename in os.listdir(TWISTER_FOLDER):
+            if filename.endswith(".txt"):
+                file_path = os.path.join(TWISTER_FOLDER, filename)
+                try:
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        all_twisters += [line.strip() for line in f if line.strip()]
+                except Exception as e:
+                    print(f"⚠️ Error reading {filename}: {e}")
+
+        if len(all_twisters) < 2:
+            await message.channel.send("❌ Not enough tongue twisters found.")
+            stop_signal.clear()
+            return
+
+        selected_twisters = random.sample(all_twisters, 2)
+
+        await run_twister(selected_twisters[0])
+        await asyncio.sleep(2)
+        await run_twister(selected_twisters[1])
+        await asyncio.sleep(2)
 
         stop_signal.clear()
-        current_task = asyncio.create_task(word_drop_loop())
+        if active_session:
+            current_task = asyncio.create_task(word_drop_loop())
 
 client.run(TOKEN)
