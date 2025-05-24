@@ -367,19 +367,22 @@ async def on_message(message):
                 else:
                     await msg.edit(content=f"**👅Twister Time!**\n_{twister_text}_\n{bar} {number_box}")
 
-        twister_file_path = os.path.join(WORD_BANK_PATH, "twisters.txt")
-        if not os.path.isfile(twister_file_path):
-            await message.channel.send("❌ twisters.txt not found in wordbank.")
+        TWISTER_FOLDER = "twisters"
+        all_twisters = []
+
+        if not os.path.isdir(TWISTER_FOLDER):
+            await message.channel.send("❌ twisters/ folder not found.")
             stop_signal.clear()
             return
 
-        try:
-            with open(twister_file_path, "r", encoding="utf-8") as f:
-                all_twisters = [line.strip() for line in f if line.strip()]
-        except Exception as e:
-            print(f"⚠️ Error reading twisters.txt: {e}")
-            stop_signal.clear()
-            return
+        for filename in os.listdir(TWISTER_FOLDER):
+            if filename.endswith(".txt"):
+                file_path = os.path.join(TWISTER_FOLDER, filename)
+                try:
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        all_twisters += [line.strip() for line in f if line.strip()]
+                except Exception as e:
+                    print(f"⚠️ Error reading {filename}: {e}")
 
         if len(all_twisters) < 2:
             await message.channel.send("❌ Not enough tongue twisters found.")
@@ -391,7 +394,10 @@ async def on_message(message):
         await run_twister(selected_twisters[0])
         await asyncio.sleep(2)
         await run_twister(selected_twisters[1])
-        await asyncio.sleep(1)
+        await asyncio.sleep(2)
+
         stop_signal.clear()
+        if active_session:
+            current_task = asyncio.create_task(word_drop_loop())
 
 client.run(TOKEN)
