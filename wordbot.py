@@ -284,4 +284,4 @@ async def on_message(message):
         await message.channel.send("No active session. Use `+start` to begin word drops.")
 
 # ---------- RUN ---------- #
-client.run(TOKEN)
+#client.run(TOKEN)
