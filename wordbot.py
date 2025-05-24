@@ -397,4 +397,4 @@ async def on_message(message):
         if active_session:
             current_task = asyncio.create_task(word_drop_loop())
 
-client.run(TOKEN)
+#client.run(TOKEN)
