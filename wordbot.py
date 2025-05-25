@@ -117,7 +117,7 @@ async def word_round():
         await target_channel.send("No words found to drop.")
         return
 
-    await target_channel.send("Dropping words, Lets L I F T :man_lifting_weights:")
+    await target_channel.send("Dropping words, Lets `L I F T` :man_lifting_weights:")
 
     start_time = asyncio.get_event_loop().time()
     interval = round_duration / max(words_per_round, 1)
@@ -223,13 +223,13 @@ async def on_message(message):
             rhyme_mode_first_round = True
             word_type = None
 
-            countdown_message = await message.channel.send("**🎤 Starting word drop session in... 3**")
+            countdown_message = await message.channel.send("**🎤 Starting word drop session in... `3`**")
             await asyncio.sleep(1)
-            await countdown_message.edit(content="**🎤 Starting word drop session in... 2**")
+            await countdown_message.edit(content="**🎤 Starting word drop session in... `2`**")
             await asyncio.sleep(1)
-            await countdown_message.edit(content="**🎤 Starting word drop session in... 1**")
+            await countdown_message.edit(content="**🎤 Starting word drop session in... `1`**")
             await asyncio.sleep(1)
-            await countdown_message.edit(content="**🎤 Starting word drop session in... GO!**")
+            await countdown_message.edit(content="**🎤 Starting word drop session in... `GO!`**")
             await asyncio.sleep(0.5)
 
             current_task = asyncio.create_task(word_drop_loop())
@@ -297,7 +297,7 @@ async def on_message(message):
             else:
                 await message.channel.send("Please specify syllables between 1 and 12.")
         else:
-            await message.channel.send("Usage: +syllables 1 to +syllables 12")
+            await message.channel.send("Usage: `+syllables 1` to `+syllables 12`")
 
     elif content.startswith("+wordcount"):
         parts = content.split()
@@ -305,7 +305,7 @@ async def on_message(message):
             words_per_round = int(parts[1])
             await message.channel.send(f"Words per round set to **{words_per_round}**.")
         else:
-            await message.channel.send("Usage: +wordcount 5")
+            await message.channel.send("Usage: `+wordcount 5`")
 
     elif content.startswith("+wordtime"):
         parts = content.split()
@@ -313,7 +313,7 @@ async def on_message(message):
             round_duration = int(parts[1])
             await message.channel.send(f"Round duration set to **{round_duration} seconds**.")
         else:
-            await message.channel.send("Usage: +wordtime 30")
+            await message.channel.send("Usage: `+wordtime 30`")
 
     elif content.startswith("+rhymes"):
         rhyme_files = [f for f in os.listdir(WORD_BANK_PATH) if f.startswith("rhymes") and f.endswith(".txt")]
@@ -360,29 +360,26 @@ async def on_message(message):
             msg = await message.channel.send(f"**👅Twister Time!**\n_{twister_text}_")
             for second in range(1, 31):
                 bar = build_flame_bar(second)
-                number_box = f"{second}" if second < 30 else "30"
+                number_box = f"`{second}`" if second < 30 else "`30`"
                 await asyncio.sleep(1)
                 if second == 30:
-                    await msg.edit(content=f"**👅Twister Time!**\n_{twister_text}_\n{bar} 30s  \\s i c k\\")
+                    await msg.edit(content=f"**👅Twister Time!**\n_{twister_text}_\n{bar} 30s  \\`s i c k\\`")
                 else:
                     await msg.edit(content=f"**👅Twister Time!**\n_{twister_text}_\n{bar} {number_box}")
 
-        TWISTER_FOLDER = "twisters"
+        twister_file_path = os.path.join(WORD_BANK_PATH, "twisters.txt")
         all_twisters = []
 
-        if not os.path.isdir(TWISTER_FOLDER):
-            await message.channel.send("❌ twisters/ folder not found.")
+        if not os.path.isfile(twister_file_path):
+            await message.channel.send("❌ `twisters.txt` not found in wordbank.")
             stop_signal.clear()
             return
 
-        for filename in os.listdir(TWISTER_FOLDER):
-            if filename.endswith(".txt"):
-                file_path = os.path.join(TWISTER_FOLDER, filename)
-                try:
-                    with open(file_path, "r", encoding="utf-8") as f:
-                        all_twisters += [line.strip() for line in f if line.strip()]
-                except Exception as e:
-                    print(f"⚠️ Error reading {filename}: {e}")
+        try:
+            with open(twister_file_path, "r", encoding="utf-8") as f:
+                all_twisters = [line.strip() for line in f if line.strip()]
+        except Exception as e:
+            print(f"⚠️ Error reading twisters.txt: {e}")
 
         if len(all_twisters) < 2:
             await message.channel.send("❌ Not enough tongue twisters found.")
@@ -401,3 +398,4 @@ async def on_message(message):
             current_task = asyncio.create_task(word_drop_loop())
 
 client.run(TOKEN)
+
