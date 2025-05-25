@@ -160,7 +160,7 @@ async def suffix_round(suffix_file, persistent_mode=False):
         await target_channel.send("⚠️ Suffix file was empty.")
         return
 
-    meaning = SUFFIX_MEANINGS.get(suffix_file, f"`{suffix_file[:-4]}`")
+    meaning = suffix_descriptions.get(suffix_file[:-4], f"`{suffix_file[:-4]}`")
 
     if persistent_mode:
         if suffix_mode_first_round:
@@ -192,6 +192,7 @@ def clear_suffix_queue():
 async def word_round():
     global queue_suffix_round, queued_suffix_file
     global queue_persistent_suffix_mode, persistent_suffix_files_used, suffix_mode_first_round
+    global queue_twister_round
 
     if stop_signal.is_set():
         return
