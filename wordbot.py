@@ -48,6 +48,10 @@ queue_persistent_rhyme_mode = False
 persistent_rhyme_files_used = set()
 rhyme_mode_first_round = True
 
+# ==== NEW GLOBALS FOR TWISTER QUEUE ====
+queue_twister_rounds = 0
+twister_list = []
+
 # ---------- UTILS ---------- #
 def load_word_list(word_type):
     if word_type in word_lists:
@@ -75,11 +79,50 @@ def load_random_words():
     print(f"Total random words loaded: {len(all_words)}")
     return all_words
 
+# --- NEW helper for twister round ---
+async def twister_round():
+    global twister_list, target_channel
+
+    if not twister_list:
+        twister_file_path = os.path.join(WORD_BANK_PATH, "twisters.txt")
+        if not os.path.isfile(twister_file_path):
+            await target_channel.send("❌ `twisters.txt` not found in wordbank.")
+            return
+        with open(twister_file_path, "r", encoding="utf-8") as f:
+            twister_list.extend([line.strip() for line in f if line.strip()])
+        if len(twister_list) < 1:
+            await target_channel.send("❌ No tongue twisters found in file.")
+            return
+
+    twister_text = random.choice(twister_list)
+
+    def build_flame_bar(seconds):
+        flames = seconds // 5
+        dashes = 6 - flames
+        return f"|{'🔥' * flames}{'-' * dashes}|"
+
+    msg = await target_channel.send(f"**👅Twister Time!**\n_{twister_text}_")
+    for second in range(1, 31):
+        bar = build_flame_bar(second)
+        number_box = f"`{second}`" if second < 30 else "`30`"
+        await asyncio.sleep(1)
+        if second == 30:
+            await msg.edit(content=f"**👅Twister Time!**\n_{twister_text}_\n{bar} 30s  \\`s i c k\\`")
+        else:
+            await msg.edit(content=f"**👅Twister Time!**\n_{twister_text}_\n{bar} {number_box}")
+
 async def word_round():
     global word_type, used_words, queue_rhyme_round, queued_rhyme_file
     global queue_persistent_rhyme_mode, persistent_rhyme_files_used, rhyme_mode_first_round
+    global queue_twister_rounds
 
     if stop_signal.is_set():
+        return
+
+    # Check if twister rounds queued, run those first
+    if queue_twister_rounds > 0:
+        queue_twister_rounds -= 1
+        await twister_round()
         return
 
     if queue_persistent_rhyme_mode:
@@ -199,6 +242,7 @@ async def on_message(message):
     global queue_rhyme_round, queued_rhyme_file, current_task
     global queue_persistent_rhyme_mode, persistent_rhyme_files_used, rhyme_mode_first_round
     global starting_session
+    global queue_twister_rounds
 
     if message.author == client.user:
         return
@@ -216,48 +260,10 @@ async def on_message(message):
 
     elif content.startswith("+twisters"):
         if not active_session:
-            await message.channel.send("No active session to interrupt with tongue twisters.")
+            await message.channel.send("No active session to queue tongue twisters.")
             return
 
-        stop_signal.set()
-
-        def build_flame_bar(seconds):
-            flames = seconds // 5
-            dashes = 6 - flames
-            return f"|{'🔥' * flames}{'-' * dashes}|"
-
-        async def run_twister(twister_text):
-            msg = await message.channel.send(f"**👅Twister Time!**\n_{twister_text}_")
-            for second in range(1, 31):
-                bar = build_flame_bar(second)
-                number_box = f"`{second}`" if second < 30 else "`30`"
-                await asyncio.sleep(1)
-                if second == 30:
-                    await msg.edit(content=f"**👅Twister Time!**\n_{twister_text}_\n{bar} 30s  \\`s i c k\\`")
-                else:
-                    await msg.edit(content=f"**👅Twister Time!**\n_{twister_text}_\n{bar} {number_box}")
-
-        twister_file_path = os.path.join(WORD_BANK_PATH, "twisters.txt")
-        all_twisters = []
-
-        if not os.path.isfile(twister_file_path):
-            await message.channel.send("❌ `twisters.txt` not found in wordbank.")
-            stop_signal.clear()
-            return
-
-        try:
-            with open(twister_file_path, "r", encoding="utf-8") as f:
-                all_twisters = [line.strip() for line in f if line.strip()]
-        except Exception as e:
-            print(f"⚠️ Error reading twisters.txt: {e}")
-
-        if len(all_twisters) < 2:
-            await message.channel.send("❌ Not enough tongue twisters found.")
-            stop_signal.clear()
-            return
-
-        twister_text = random.choice(all_twisters)
-        await run_twister(twister_text)
-        stop_signal.clear()
+        queue_twister_rounds += 2
+        await message.channel.send(f"👅 Tongue twisters queued for the next {queue_twister_rounds} rounds! Get ready!")
 
 client.run(TOKEN)
