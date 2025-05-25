@@ -130,7 +130,7 @@ async def word_round():
         await target_channel.send("No words found to drop.")
         return
 
-    await target_channel.send("Dropping words, Let's `L I F T` 👅")
+    await target_channel.send("Dropping words, Let's `L I F T` :man_lifting_weights:")
 
     start_time = asyncio.get_event_loop().time()
     interval = round_duration / max(words_per_round, 1)
@@ -152,7 +152,7 @@ async def run_twister(twister_text):
     def build_flame_bar(seconds):
         flames = seconds // 5
         dashes = 6 - flames
-return "|" + "🔥" * flames + "-" * dashes + "|"
+        return "|" + "🔥" * flames + "-" * dashes + "|"
 
     msg = await target_channel.send(f"**👅Twister Time!**\n_{twister_text}_")
     for second in range(1, 31):
