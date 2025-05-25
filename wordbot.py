@@ -152,7 +152,7 @@ async def run_twister(twister_text):
     def build_flame_bar(seconds):
         flames = seconds // 5
         dashes = 6 - flames
-        return f"|{'\ud83d\udd25' * flames}{'-' * dashes}|"
+return "|" + "🔥" * flames + "-" * dashes + "|"
 
     msg = await target_channel.send(f"**👅Twister Time!**\n_{twister_text}_")
     for second in range(1, 31):
