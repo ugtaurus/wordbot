@@ -117,7 +117,8 @@ async def run_twister(twister_text):
     def build_flame_bar(seconds):
         flames = seconds // 5
         dashes = 6 - flames
-        return f"|{"\U0001F525" * flames}{'-' * dashes}|"
+        fire = "🔥"
+        return f"|{fire * flames}{'-' * dashes}|"
 
     msg = await target_channel.send(f"**💅Twister Time!**\n_{twister_text}_")
     for second in range(1, 31):
@@ -127,27 +128,6 @@ async def run_twister(twister_text):
             await msg.edit(content=f"**💅Twister Time!**\n_{twister_text}_\n{bar} 30s  `sick!`")
         else:
             await msg.edit(content=f"**💅Twister Time!**\n_{twister_text}_\n{bar} {second}")
-
-async def twister_round():
-    all_twisters = []
-    for fname in os.listdir(WORD_BANK_PATH):
-        if fname.startswith("twisters") and fname.endswith(".txt"):
-            try:
-                with open(os.path.join(WORD_BANK_PATH, fname), "r", encoding="utf-8") as f:
-                    all_twisters += [line.strip() for line in f if line.strip()]
-            except Exception as e:
-                print(f"⚠️ Error reading {fname}: {e}")
-
-    if len(all_twisters) < 2:
-        await target_channel.send("❌ Not enough tongue twisters found.")
-        return
-
-    selected_twisters = random.sample(all_twisters, 2)
-
-    await run_twister(selected_twisters[0])
-    await asyncio.sleep(2)
-    await run_twister(selected_twisters[1])
-    await asyncio.sleep(2)
 
 async def suffix_round(suffix_file, persistent_mode=False):
     global suffix_mode_first_round
@@ -165,26 +145,26 @@ async def suffix_round(suffix_file, persistent_mode=False):
 
     if persistent_mode:
         if suffix_mode_first_round:
-            await target_channel.send(f"�킨 Suffix Mode start! {meaning}")
+            await target_channel.send(f"📸 Suffix Mode start! {meaning}")
             suffix_mode_first_round = False
         else:
-            await target_channel.send(f"�킨 More suffixes coming: {meaning}")
+            await target_channel.send(f"📸 More suffixes coming: {meaning}")
     else:
-        await target_channel.send(f"�킨 Suffix round queued! {meaning}")
+        await target_channel.send(f"📸 Suffix round queued! {meaning}")
 
-    count_msg = await target_channel.send(f"�킨 Suffix: {meaning} `3`")
+    count_msg = await target_channel.send(f"📸 Suffix: {meaning} `3`")
     for count in ["2", "1", "GO!"]:
         await asyncio.sleep(1)
-        await count_msg.edit(content=f"�킨 Suffix: {meaning} `{count}`")
+        await count_msg.edit(content=f"📸 Suffix: {meaning} `{count}`")
 
     interval = round_duration / max(words_per_round, 1)
     for _ in range(min(words_per_round, len(suffix_words))):
         word = random.choice(suffix_words)
-        await target_channel.send(f"�킨 {word}")
+        await target_channel.send(f"📸 {word}")
         await asyncio.sleep(interval)
 
     if not persistent_mode:
-        await target_channel.send("�킨 Suffix round done! Back to normal words...")
+        await target_channel.send("📸 Suffix round done! Back to normal words...")
 
 def clear_suffix_queue():
     global queue_suffix_round, queued_suffix_file
@@ -283,7 +263,7 @@ async def on_message(message):
     elif message.content.startswith("+stop"):
         stop_signal.set()
         active_session = False
-        await message.channel.send("🛑 Session stopped.")
+        await message.channel.send("🚛 Session stopped.")
 
     elif message.content.startswith("+suffix"):
         suffix_files = [f for f in os.listdir(SUFFIX_FOLDER) if f.endswith(".txt")]
@@ -292,12 +272,13 @@ async def on_message(message):
             return
         queued_suffix_file = random.choice(suffix_files)
         queue_suffix_round = True
-        await message.channel.send("�킨 Suffix round queued!")
+        await message.channel.send("📸 Suffix round queued!")
 
     elif message.content.startswith("+suffix mode"):
         queue_persistent_suffix_mode = True
         persistent_suffix_files_used.clear()
         suffix_mode_first_round = True
-        await message.channel.send("�킨 Persistent suffix mode activated!")
+        await message.channel.send("📸 Persistent suffix mode activated!")
 
 client.run(TOKEN)
+                        
