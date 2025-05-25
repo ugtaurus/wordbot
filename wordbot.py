@@ -88,7 +88,7 @@ async def run_twister(twister_text):
         number_box = f"{second}" if second < 30 else "30"
         await asyncio.sleep(1)
         if second == 30:
-            await msg.edit(content=f"**👅Twister Time!**\n_{twister_text}_\n{bar} 30s  \\s i c k\\")
+            await msg.edit(content=f"**👅Twister Time!**\n_{twister_text}_\n{bar} 30s  `sick!`")
         else:
             await msg.edit(content=f"**👅Twister Time!**\n_{twister_text}_\n{bar} {number_box}")
 
