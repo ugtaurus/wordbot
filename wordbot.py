@@ -188,3 +188,4 @@ elif message.content.startswith("+suffix mode"):
     await message.channel.send("🂨 Persistent suffix mode activated!")
 
 client.run(TOKEN)
+
