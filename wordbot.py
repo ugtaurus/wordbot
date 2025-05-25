@@ -117,16 +117,16 @@ async def run_twister(twister_text):
     def build_flame_bar(seconds):
         flames = seconds // 5
         dashes = 6 - flames
-        return f"|{'\U0001F525' * flames}{'-' * dashes}|"
+        return f"|{'🔥' * flames}{'-' * dashes}|"
 
-    msg = await target_channel.send(f"**👅Twister Time!**\n_{twister_text}_")
+    msg = await target_channel.send(f"**🍜Twister Time!**\n_{twister_text}_")
     for second in range(1, 31):
         bar = build_flame_bar(second)
         await asyncio.sleep(1)
         if second == 30:
-            await msg.edit(content=f"**👅Twister Time!**\n_{twister_text}_\n{bar} 30s  `sick!`")
+            await msg.edit(content=f"**🍜Twister Time!**\n_{twister_text}_\n{bar} 30s  `sick!`")
         else:
-            await msg.edit(content=f"**👅Twister Time!**\n_{twister_text}_\n{bar} {second}")
+            await msg.edit(content=f"**🍜Twister Time!**\n_{twister_text}_\n{bar} {second}")
 
 async def suffix_round(suffix_file, persistent_mode=False):
     global suffix_mode_first_round
@@ -144,28 +144,26 @@ async def suffix_round(suffix_file, persistent_mode=False):
 
     if persistent_mode:
         if suffix_mode_first_round:
-            await target_channel.send(f"🡢 Suffix Mode start! {key} = {meaning}")
+            await target_channel.send(f"🧂 Suffix Mode start! {key} = {meaning}")
             suffix_mode_first_round = False
         else:
-            await target_channel.send(f"🡢 More suffixes coming: {key} = {meaning}")
+            await target_channel.send(f"🧂 More suffixes coming: {key} = {meaning}")
     else:
-        await target_channel.send(f"🡢 Suffix round queued! {key} = {meaning}")
+        await target_channel.send(f"🧂 Suffix round queued: {key} = {meaning}")
 
-    count_msg = await target_channel.send(f"📟 Suffix {key} = {meaning} `3`")
+    count_msg = await target_channel.send(f"🧿Suffix: {key} = {meaning} `3`")
     for count in ["2", "1", "GO!"]:
         await asyncio.sleep(1)
-        await count_msg.edit(content=f"📟 Suffix {key} = {meaning} `{count}`")
-
-    await count_msg.delete()
+        await count_msg.edit(content=f"🧿Suffix: {key} = {meaning} `{count}`")
 
     interval = round_duration / max(words_per_round, 1)
     for _ in range(min(words_per_round, len(suffix_words))):
         word = random.choice(suffix_words)
-        await target_channel.send(f"🔠{word}🔠")
+        await target_channel.send(f"💠{word}💠")
         await asyncio.sleep(interval)
 
     if not persistent_mode:
-        await target_channel.send(f"🡢 Suffix round done! Back to normal words...")
+        await target_channel.send(f"🧂 Suffix round done! Back to normal words...")
 
 def clear_suffix_queue():
     global queue_suffix_round, queued_suffix_file
@@ -279,7 +277,7 @@ async def on_message(message):
             return
         queued_suffix_file = random.choice(suffix_files)
         queue_suffix_round = True
-        await message.channel.send("🡢 Suffix round queued!")
+        await message.channel.send("🧢 Suffix round queued!")
 
     elif message.content.startswith("+suffix mode"):
         queue_persistent_suffix_mode = True
