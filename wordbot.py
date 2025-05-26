@@ -285,4 +285,4 @@ async def on_message(message):
         suffix_mode_first_round = True
         await message.channel.send("📸 Persistent suffix mode activated!")
 
-client.run(TOKEN)
+#client.run(TOKEN)
