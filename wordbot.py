@@ -186,14 +186,6 @@ if suffix_mode_active or queue_persistent_suffix_mode or queue_suffix_mode:
         suffix_mode_first_round = True
         queue_suffix_mode = False  # reset after using it
 
-    if suffix_mode_first_round or queue_persistent_suffix_mode:
-        suffix_mode_first_round = False
-        chosen_file = random.choice(get_suffix_files())
-        await suffix_round(chosen_file, persistent_mode=suffix_mode_active)
-        if not queue_persistent_suffix_mode:
-            suffix_mode_active = False  # exit one-time mode after round
-        continue  # skip normal word round
-
 async def word_round():
     global word_type, used_words, queue_rhyme_round, queued_rhyme_file
     global queue_persistent_rhyme_mode, persistent_rhyme_files_used, rhyme_mode_first_round
