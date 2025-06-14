@@ -199,28 +199,33 @@ async def word_round():
     global queue_persistent_rhyme_mode, persistent_rhyme_files_used, rhyme_mode_first_round
     global queue_twister_round
     global queue_persistent_suffix_mode, persistent_suffix_files_used, suffix_mode_first_round
+    global suffix_mode_active, queue_suffix_mode
 
     if stop_signal.is_set():
         return
 
+    # -------- SUFFIX MODE ROUND HANDLING --------
+    if suffix_mode_active or queue_persistent_suffix_mode or queue_suffix_mode:
+        if queue_suffix_mode:
+            suffix_mode_active = True
+            suffix_mode_first_round = True
+            queue_suffix_mode = False  # reset after using it
+
+        if suffix_mode_first_round or queue_persistent_suffix_mode:
+            suffix_mode_first_round = False
+            chosen_file = random.choice(get_suffix_files())
+            await suffix_round(chosen_file, persistent_mode=suffix_mode_active)
+            if not queue_persistent_suffix_mode:
+                suffix_mode_active = False  # exit one-time mode after round
+            return  # skip normal word round
+
+    # ----- OTHER ROUND HANDLING -----
     if queue_twister_round:
         queue_twister_round = False
         await twister_round()
         return
 
-    # Prioritize suffix mode if active
-    if queue_persistent_suffix_mode:
-        suffix_files = get_suffix_files()
-        available_files = [f for f in suffix_files if f not in persistent_suffix_files_used]
-        if not available_files:
-            persistent_suffix_files_used.clear()
-            available_files = suffix_files
-
-        chosen_file = random.choice(available_files)
-        persistent_suffix_files_used.add(chosen_file)
-        await suffix_round(chosen_file, persistent_mode=True)
-        return
-
+    # continue with normal word round..
     if queue_persistent_rhyme_mode:
         rhyme_files = [f for f in os.listdir(WORD_BANK_PATH) if f.startswith("rhymes") and f.endswith(".txt")]
         available_files = [f for f in rhyme_files if f not in persistent_rhyme_files_used]
