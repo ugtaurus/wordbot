@@ -516,15 +516,15 @@ async def on_message(message):
         await message.channel.send("Rhyme round queued!")
 
     elif content.startswith("+rhyme mode"):
-        queue_persistent_rhyme_mode = not queue_persistent_rhyme_mode
-        if queue_persistent_rhyme_mode:
-            persistent_rhyme_files_used.clear()
-            rhyme_mode_first_round = True
-            await message.channel.send("🎤 Persistent rhyme mode activated.")
-        else:
-            await message.channel.send("🎤 Persistent rhyme mode deactivated.")
+    queue_persistent_rhyme_mode = not queue_persistent_rhyme_mode
+    if queue_persistent_rhyme_mode:
+        persistent_rhyme_files_used.clear()
+        rhyme_mode_first_round = True
+        await message.channel.send("🎤 Persistent rhyme mode activated.")
+    else:
+        await message.channel.send("🎤 Persistent rhyme mode deactivated.")
 
-    elif content.startswith("+suffix"):
+elif content.startswith("+suffix"):
     suffix_files = get_suffix_files()
     if not suffix_files:
         await message.channel.send("❌ No suffix word files found.")
@@ -542,9 +542,9 @@ elif content.startswith("+suffix mode"):
     else:
         await message.channel.send("🧹 Persistent suffix mode deactivated.")
 
-    elif content.startswith("+twisters"):
-        queue_twister_round = True
-        await message.channel.send("Tongue twisters queued!")
+elif content.startswith("+twisters"):
+    queue_twister_round = True
+    await message.channel.send("Tongue twisters queued!")
 
 keep_alive()
 client.run(TOKEN)
