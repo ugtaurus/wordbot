@@ -52,10 +52,11 @@ queue_twister_round = False
 
 # --- New suffix mode globals ---
 queue_persistent_suffix_mode = False
+queued_suffix_mode = False  # <-- new variable to defer suffix mode
 persistent_suffix_files_used = set()
 suffix_mode_first_round = True
+suffix_mode_active = False  # <-- to know when it's currently active
 
-# Suffix meanings dictionary (example, can be expanded as needed)
 suffix_meanings = {
     "-able": "capable of",
     "-acy": "state or quality",
@@ -88,6 +89,23 @@ suffix_meanings = {
     "-ways": "in the manner of",
     "-wise": "in the way of"
 }
+
+# Call this function to queue suffix mode
+def queue_suffix_mode():
+    global queued_suffix_mode
+    queued_suffix_mode = True
+    print("📌 Suffix mode queued for next round.")
+
+# Call this at the start of each round
+def handle_mode_activation():
+    global queued_suffix_mode, suffix_mode_active, suffix_mode_first_round
+    if queued_suffix_mode:
+        suffix_mode_active = True
+        suffix_mode_first_round = True
+        queued_suffix_mode = False
+        print("✅ Suffix mode activated.")
+    else:
+        suffix_mode_first_round = False
 
 # ---------- UTILS ---------- #
 def load_word_list(word_type):
