@@ -515,7 +515,7 @@ async def on_message(message):
         queued_rhyme_file = chosen_file
         await message.channel.send("Rhyme round queued!")
 
-    elif content.startswith("+rhyme mode"):
+elif content.startswith("+rhyme mode"):
     queue_persistent_rhyme_mode = not queue_persistent_rhyme_mode
     if queue_persistent_rhyme_mode:
         persistent_rhyme_files_used.clear()
