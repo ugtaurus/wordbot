@@ -526,7 +526,7 @@ async def on_message(message):
 
     elif content.startswith("+suffix"):
         suffix_files = get_suffix_files()
-                if not suffix_files:
+        if not suffix_files:
             await message.channel.send("❌ No suffix files found.")
             return
 
