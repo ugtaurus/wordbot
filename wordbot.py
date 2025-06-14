@@ -13,6 +13,7 @@ TARGET_CHANNEL_ID = 1374368615138328656
 WORDS_PER_ROUND = 5
 ROUND_DURATION = 30
 WORD_BANK_PATH = "wordbanks"
+SUFFIX_BANK_PATH = os.path.join(WORD_BANK_PATH, "suffixes")
 
 # ---------- GLOBALS ---------- #
 WORD_FILES_RANDOM = [
@@ -49,6 +50,45 @@ rhyme_mode_first_round = True
 
 queue_twister_round = False
 
+# --- New suffix mode globals ---
+queue_persistent_suffix_mode = False
+persistent_suffix_files_used = set()
+suffix_mode_first_round = True
+
+# Suffix meanings dictionary (example, can be expanded as needed)
+suffix_meanings = {
+    "-able": "capable of",
+    "-acy": "state or quality",
+    "-al": "pertaining to",
+    "-ance": "state or quality",
+    "-ate": "cause to be",
+    "-dom": "state or condition",
+    "-en": "to make",
+    "-ence": "state or quality",
+    "-er": "one who",
+    "-ful": "full of",
+    "-fy": "to make",
+    "-ible": "capable of",
+    "-ise": "to make",
+    "-ish": "having the quality of",
+    "-ism": "doctrine or belief",
+    "-ist": "one who practices",
+    "-less": "without",
+    "-like": "resembling",
+    "-ly": "in the manner of",
+    "-ment": "result or means",
+    "-ness": "state or quality",
+    "-or": "one who",
+    "-ous": "full of",
+    "-ship": "state or condition",
+    "-some": "characterized by",
+    "-tion": "act or state",
+    "-ty": "quality of",
+    "-ward": "direction",
+    "-ways": "in the manner of",
+    "-wise": "in the way of"
+}
+
 # ---------- UTILS ---------- #
 def load_word_list(word_type):
     if word_type in word_lists:
@@ -75,6 +115,14 @@ def load_random_words():
     random.shuffle(all_words)
     print(f"Total random words loaded: {len(all_words)}")
     return all_words
+
+def get_suffix_files():
+    try:
+        files = [f for f in os.listdir(SUFFIX_BANK_PATH) if f.startswith("suffix ") and f.endswith(".txt")]
+        return files
+    except Exception as e:
+        print(f"⚠️ Could not list suffix files: {e}")
+        return []
 
 async def run_twister(twister_text):
     def build_flame_bar(seconds):
@@ -117,6 +165,7 @@ async def word_round():
     global word_type, used_words, queue_rhyme_round, queued_rhyme_file
     global queue_persistent_rhyme_mode, persistent_rhyme_files_used, rhyme_mode_first_round
     global queue_twister_round
+    global queue_persistent_suffix_mode, persistent_suffix_files_used, suffix_mode_first_round
 
     if stop_signal.is_set():
         return
@@ -124,6 +173,19 @@ async def word_round():
     if queue_twister_round:
         queue_twister_round = False
         await twister_round()
+        return
+
+    # Prioritize suffix mode if active
+    if queue_persistent_suffix_mode:
+        suffix_files = get_suffix_files()
+        available_files = [f for f in suffix_files if f not in persistent_suffix_files_used]
+        if not available_files:
+            persistent_suffix_files_used.clear()
+            available_files = suffix_files
+
+        chosen_file = random.choice(available_files)
+        persistent_suffix_files_used.add(chosen_file)
+        await suffix_round(chosen_file, persistent_mode=True)
         return
 
     if queue_persistent_rhyme_mode:
@@ -213,10 +275,62 @@ async def rhyme_round(rhyme_file, persistent_mode=False):
     if not persistent_mode:
         await target_channel.send("🎤 Rhyme round done! Back to normal words...")
 
+async def suffix_round(suffix_file, persistent_mode=False):
+    global words_per_round, round_duration, target_channel, suffix_mode_first_round
+
+    file_path = os.path.join(SUFFIX_BANK_PATH, suffix_file)
+    with open(file_path, "r", encoding="utf-8") as f:
+        suffix_words = [line.strip() for line in f if line.strip()]
+
+    if not suffix_words:
+        await target_channel.send("⚠️ Suffix file was empty.")
+        return
+
+    # Extract suffix key from filename, e.g. "suffix -able.txt" -> "-able"
+    suffix_key = suffix_file.replace("suffix ", "").replace(".txt", "")
+    meaning = suffix_meanings.get(suffix_key, "meaning unknown")
+
+    if persistent_mode:
+        if suffix_mode_first_round:
+            # Countdown animation: "Droppin suffix rhymes, Get ready `3` `2` `1`"
+            countdown_msg = await target_channel.send(f"**Droppin suffix rhymes, Get ready `3`**")
+            await asyncio.sleep(1)
+            await countdown_msg.edit(content=f"**Droppin suffix rhymes, Get ready `2`**")
+            await asyncio.sleep(1)
+            await countdown_msg.edit(content=f"**Droppin suffix rhymes, Get ready `1`**")
+            await asyncio.sleep(1)
+            await countdown_msg.edit(content=f"**Droppin suffix rhymes, GO!**")
+            await asyncio.sleep(1)
+            suffix_mode_first_round = False
+        else:
+            await target_channel.send("**Droppin Suffixes⬇️**")
+    else:
+        # For single suffix round (non-persistent) just send a quick message with suffix and meaning
+        await target_channel.send(f"**Suffix Round: `{suffix_key}={meaning}`**")
+        await asyncio.sleep(2)
+
+    start_time = asyncio.get_event_loop().time()
+    interval = round_duration / max(words_per_round, 1)
+
+    # Drop words with low brightness effect using :low_brightness: emoji around word
+    for _ in range(min(words_per_round, len(suffix_words))):
+        word = random.choice(suffix_words)
+        await target_channel.send(f":low_brightness:{word}:low_brightness:")
+        await asyncio.sleep(interval)
+
+    if not persistent_mode:
+        await target_channel.send("🎤 Suffix round done! Back to normal words...")
+
 def clear_rhyme_queue():
     global queue_rhyme_round, queued_rhyme_file
     queue_rhyme_round = False
     queued_rhyme_file = None
+
+def clear_suffix_queue():
+    global queue_persistent_suffix_mode, persistent_suffix_files_used, suffix_mode_first_round
+    queue_persistent_suffix_mode = False
+    persistent_suffix_files_used.clear()
+    suffix_mode_first_round = True
 
 async def word_drop_loop():
     global active_session, stop_signal
@@ -243,6 +357,7 @@ async def on_message(message):
     global queue_rhyme_round, queued_rhyme_file, current_task
     global queue_persistent_rhyme_mode, persistent_rhyme_files_used, rhyme_mode_first_round
     global queue_twister_round
+    global queue_persistent_suffix_mode, persistent_suffix_files_used, suffix_mode_first_round
 
     if message.author == client.user:
         return
@@ -264,11 +379,12 @@ async def on_message(message):
             stop_signal.clear()
             used_words.clear()
             clear_rhyme_queue()
+            clear_suffix_queue()
             queue_persistent_rhyme_mode = False
             persistent_rhyme_files_used.clear()
             rhyme_mode_first_round = True
-            word_type = None
             queue_twister_round = False
+            word_type = None
 
             countdown_message = await message.channel.send("**🎤 Starting word drop session in... `3**")
             await asyncio.sleep(1)
@@ -286,6 +402,7 @@ async def on_message(message):
             active_session = False
             stop_signal.set()
             clear_rhyme_queue()
+            clear_suffix_queue()
             queue_persistent_rhyme_mode = False
             persistent_rhyme_files_used.clear()
             rhyme_mode_first_round = True
@@ -304,6 +421,7 @@ async def on_message(message):
     elif content.startswith("+reset"):
         word_type = None
         clear_rhyme_queue()
+        clear_suffix_queue()
         stop_signal.clear()
         used_words.clear()
         queue_persistent_rhyme_mode = False
@@ -375,26 +493,41 @@ async def on_message(message):
             available_files = rhyme_files
 
         chosen_file = random.choice(available_files)
-        queued_rhyme_file = chosen_file
         queue_rhyme_round = True
+        queued_rhyme_file = chosen_file
         await message.channel.send("Rhyme round queued!")
 
     elif content.startswith("+rhyme mode"):
-        rhyme_files = [f for f in os.listdir(WORD_BANK_PATH) if f.startswith("rhymes") and f.endswith(".txt")]
-        if not rhyme_files:
-            await message.channel.send("❌ No rhyme word files found.")
-            return
-
+        queue_persistent_rhyme_mode = not queue_persistent_rhyme_mode
         if queue_persistent_rhyme_mode:
-            await message.channel.send("Rhyme mode is already active.")
+            persistent_rhyme_files_used.clear()
+            rhyme_mode_first_round = True
+            await message.channel.send("🎤 Persistent rhyme mode activated.")
+        else:
+            await message.channel.send("🎤 Persistent rhyme mode deactivated.")
+
+    elif content.startswith("+suffix"):
+        suffix_files = get_suffix_files()
+        if not suffix_files:
+            await message.channel.send("❌ No suffix word files found.")
             return
 
-        queue_persistent_rhyme_mode = True
-        persistent_rhyme_files_used.clear()
-        await message.channel.send("Rhyme Mode startin' next round.")
+        # single suffix round with a random suffix file
+        chosen_file = random.choice(suffix_files)
+        await suffix_round(chosen_file, persistent_mode=False)
+
+    elif content.startswith("+suffix mode"):
+        queue_persistent_suffix_mode = not queue_persistent_suffix_mode
+        if queue_persistent_suffix_mode:
+            persistent_suffix_files_used.clear()
+            suffix_mode_first_round = True
+            await message.channel.send("🌀 Persistent suffix mode activated.")
+        else:
+            await message.channel.send("🌀 Persistent suffix mode deactivated.")
 
     elif content.startswith("+twisters"):
         queue_twister_round = True
-        await message.channel.send("👅 Twister round queued!")
+        await message.channel.send("Tongue twisters queued!")
 
+keep_alive()
 client.run(TOKEN)
