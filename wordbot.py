@@ -515,36 +515,37 @@ async def on_message(message):
         queued_rhyme_file = chosen_file
         await message.channel.send("Rhyme round queued!")
 
-elif content.startswith("+rhyme mode"):
-    queue_persistent_rhyme_mode = not queue_persistent_rhyme_mode
-    if queue_persistent_rhyme_mode:
-        persistent_rhyme_files_used.clear()
-        rhyme_mode_first_round = True
-        await message.channel.send("🎤 Persistent rhyme mode activated.")
-    else:
-        await message.channel.send("🎤 Persistent rhyme mode deactivated.")
+    elif content.startswith("+rhyme mode"):
+        queue_persistent_rhyme_mode = not queue_persistent_rhyme_mode
+        if queue_persistent_rhyme_mode:
+            persistent_rhyme_files_used.clear()
+            rhyme_mode_first_round = True
+            await message.channel.send("🎤 Persistent rhyme mode activated.")
+        else:
+            await message.channel.send("🎤 Persistent rhyme mode deactivated.")
 
-elif content.startswith("+suffix"):
-    suffix_files = get_suffix_files()
-    if not suffix_files:
-        await message.channel.send("❌ No suffix word files found.")
-        return
+    elif content.startswith("+suffix"):
+        suffix_files = get_suffix_files()
+                if not suffix_files:
+            await message.channel.send("❌ No suffix files found.")
+            return
 
-    chosen_file = random.choice(suffix_files)
-    await suffix_round(chosen_file, persistent_mode=False)
+        available_files = [f for f in suffix_files if f != queued_rhyme_file]
+        if not available_files:
+            available_files = suffix_files
 
-elif content.startswith("+suffix mode"):
-    queue_persistent_suffix_mode = not queue_persistent_suffix_mode
-    if queue_persistent_suffix_mode:
-        persistent_suffix_files_used.clear()
-        suffix_mode_first_round = True
-        await message.channel.send("📌 Persistent suffix mode activated.")
-    else:
-        await message.channel.send("🧹 Persistent suffix mode deactivated.")
+        chosen_file = random.choice(available_files)
+        await suffix_round(chosen_file)
 
-elif content.startswith("+twisters"):
-    queue_twister_round = True
-    await message.channel.send("Tongue twisters queued!")
+    elif content.startswith("+suffix mode"):
+        queue_persistent_suffix_mode = not queue_persistent_suffix_mode
+        if queue_persistent_suffix_mode:
+            persistent_suffix_files_used.clear()
+            suffix_mode_first_round = True
+            await message.channel.send("🎤 Persistent suffix mode activated.")
+        else:
+            await message.channel.send("🎤 Persistent suffix mode deactivated.")
 
+# ---------- BOT START ---------- #
 keep_alive()
 client.run(TOKEN)
