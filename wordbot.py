@@ -9,7 +9,7 @@ import random
 TOKEN = os.getenv("TOKEN")
 
 # ---------- SETTINGS ---------- #
-TARGET_CHANNEL_IDS = [1374368615138328656, 1383360832112431206]
+TARGET_CHANNEL_ID = 1374368615138328656
 WORDS_PER_ROUND = 5
 ROUND_DURATION = 30
 WORD_BANK_PATH = "wordbanks"
@@ -31,7 +31,7 @@ client = discord.Client(intents=intents)
 
 word_type = None
 active_session = False
-target_channels = []
+target_channel = None
 used_words = set()
 stop_signal = asyncio.Event()
 words_per_round = WORDS_PER_ROUND
@@ -76,26 +76,21 @@ def load_random_words():
     print(f"Total random words loaded: {len(all_words)}")
     return all_words
 
-async def broadcast(content):
-    for ch in target_channels:
-        await ch.send(content)
-
 async def run_twister(twister_text):
     def build_flame_bar(seconds):
         flames = seconds // 5
         dashes = 6 - flames
         return f"|{'🔥' * flames}{'-' * dashes}|"
 
-    for ch in target_channels:
-        msg = await ch.send(f"**👅Twister Time!**\n_{twister_text}_")
-        for second in range(1, 31):
-            bar = build_flame_bar(second)
-            number_box = f"{second}" if second < 30 else "30"
-            await asyncio.sleep(1)
-            if second == 30:
-                await msg.edit(content=f"**👅Twister Time!**\n_{twister_text}_\n{bar} 30s  \\s i c k\\")
-            else:
-                await msg.edit(content=f"**👅Twister Time!**\n_{twister_text}_\n{bar} {number_box}")
+    msg = await target_channel.send(f"**👅Twister Time!**\n_{twister_text}_")
+    for second in range(1, 31):
+        bar = build_flame_bar(second)
+        number_box = f"{second}" if second < 30 else "30"
+        await asyncio.sleep(1)
+        if second == 30:
+            await msg.edit(content=f"**👅Twister Time!**\n_{twister_text}_\n{bar} 30s  \\s i c k\\")
+        else:
+            await msg.edit(content=f"**👅Twister Time!**\n_{twister_text}_\n{bar} {number_box}")
 
 async def twister_round():
     all_twisters = []
@@ -108,7 +103,7 @@ async def twister_round():
                 print(f"⚠️ Error reading {fname}: {e}")
 
     if len(all_twisters) < 2:
-        await broadcast("❌ Not enough tongue twisters found.")
+        await target_channel.send("❌ Not enough tongue twisters found.")
         return
 
     selected_twisters = random.sample(all_twisters, 2)
@@ -157,14 +152,17 @@ async def word_round():
 
     if not words:
         used_words.clear()
-        words = load_word_list(word_type) if word_type else load_random_words()
+        if word_type:
+            words = load_word_list(word_type)
+        else:
+            words = load_random_words()
         words = [w for w in words if w not in used_words]
 
     if not words:
-        await broadcast("No words found to drop.")
+        await target_channel.send("No words found to drop.")
         return
 
-    await broadcast("Dropping words, Lets `L I F T` :man_lifting_weights:")
+    await target_channel.send("Dropping words, Lets `L I F T` :man_lifting_weights:")
 
     start_time = asyncio.get_event_loop().time()
     interval = round_duration / max(words_per_round, 1)
@@ -175,41 +173,45 @@ async def word_round():
             return
         word = random.choice(words)
         used_words.add(word)
-        await broadcast(f"🔹{word}🔹")
+        await target_channel.send(f"🔹{word}🔹")
         words_dropped += 1
         await asyncio.sleep(interval)
 
-    await broadcast("**:hotsprings: Sheesh, fire!! Time to pass the Metal! 🔁**")
+    await target_channel.send("**:hotsprings: Sheesh, fire!! Time to pass the Metal! 🔁**")
     await asyncio.sleep(5)
 
 async def rhyme_round(rhyme_file, persistent_mode=False):
-    global words_per_round, round_duration, rhyme_mode_first_round
+    global words_per_round, round_duration, target_channel, rhyme_mode_first_round
 
     file_path = os.path.join(WORD_BANK_PATH, rhyme_file)
     with open(file_path, "r", encoding="utf-8") as f:
         rhyme_words = [line.strip() for line in f if line.strip()]
 
     if not rhyme_words:
-        await broadcast("⚠️ Rhyme file was empty.")
+        await target_channel.send("⚠️ Rhyme file was empty.")
         return
 
     if persistent_mode:
-        msg = "🎯 Dropping rhymes!" if rhyme_mode_first_round else "**More rhymes loading:⬇️ **"
-        rhyme_mode_first_round = False
+        if rhyme_mode_first_round:
+            await target_channel.send("🎯 Dropping rhymes!")
+            rhyme_mode_first_round = False
+        else:
+            await target_channel.send("**More rhymes loading:⬇️ **")
     else:
-        msg = "**🎯 Dropping rhymes!**"
+        await target_channel.send("**🎯 Dropping rhymes!**")
 
-    await broadcast(msg)
     await asyncio.sleep(2)
 
+    start_time = asyncio.get_event_loop().time()
     interval = round_duration / max(words_per_round, 1)
+
     for _ in range(min(words_per_round, len(rhyme_words))):
         word = random.choice(rhyme_words)
-        await broadcast(f"🔸{word}🔸")
+        await target_channel.send(f"🔸{word}🔸")
         await asyncio.sleep(interval)
 
     if not persistent_mode:
-        await broadcast("🎤 Rhyme round done! Back to normal words...")
+        await target_channel.send("🎤 Rhyme round done! Back to normal words...")
 
 def clear_rhyme_queue():
     global queue_rhyme_round, queued_rhyme_file
@@ -227,11 +229,12 @@ async def word_drop_loop():
 # ---------- EVENTS ---------- #
 @client.event
 async def on_ready():
-    global target_channels
-    target_channels = [client.get_channel(cid) for cid in TARGET_CHANNEL_IDS if client.get_channel(cid)]
-    print(f"Logged in as {client.user}")
-    for ch in target_channels:
-        print(f"✅ Posting in: {ch.guild.name} / #{ch.name}")
+    global target_channel
+    target_channel = client.get_channel(TARGET_CHANNEL_ID)
+    if target_channel:
+        print(f"Logged in as {client.user}! Posting words in channel: {target_channel.name}")
+    else:
+        print("⚠️ Bot is logged in, but the channel was not found. Check the channel ID and bot permissions.")
 
 @client.event
 async def on_message(message):
