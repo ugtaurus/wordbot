@@ -235,7 +235,7 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-   global word_type, active_session, target_channel
+    global word_type, active_session, target_channel
     global words_per_round, round_duration, stop_signal, used_words
     global queue_rhyme_round, queued_rhyme_file, current_task
     global queue_persistent_rhyme_mode, persistent_rhyme_files_used, rhyme_mode_first_round
