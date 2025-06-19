@@ -291,8 +291,8 @@ async def on_message(msg):
     elif content.startswith("+syllables"):
         parts = content.split()
         if len(parts) == 2 and parts[1].isdigit():
-            word_type = f\"syllables {parts[1]}\"
-            await msg.channel.send(f\"Loading syllables {parts[1]} next round...\")
+            word_type = f"syllables {parts[1]}"
+            await msg.channel.send(f"Loading syllables {parts[1]} next round...")
 
     elif content.startswith("+nouns"):
         word_type = \"nouns\"
