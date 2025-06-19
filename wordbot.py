@@ -9,7 +9,7 @@ import random
 TOKEN = os.getenv("TOKEN")
 
 # ---------- SETTINGS ---------- #
-TARGET_CHANNEL_ID = 1374368615138328656
+TARGET_CHANNEL_ID = [1374368615138328656, 1383360832112431206]
 WORDS_PER_ROUND = 5
 ROUND_DURATION = 30
 WORD_BANK_PATH = "wordbanks"
@@ -249,7 +249,7 @@ async def on_message(message):
 
     content = message.content.lower()
 
-    if message.channel.id == TARGET_CHANNEL_ID and content.startswith("+"):
+    if message.channel.id in TARGET_CHANNEL_IDS and content.startswith("+"):
         try:
             if message.channel.permissions_for(message.guild.me).manage_messages:
                 await message.delete()
