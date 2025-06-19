@@ -228,13 +228,9 @@ async def word_drop_loop():
 
 # ---------- EVENTS ---------- #
 @client.event
+@client.event
 async def on_ready():
-    global target_channel
-    target_channel = client.get_channel(TARGET_CHANNEL_ID)
-    if target_channel:
-        print(f"Logged in as {client.user}! Posting words in channel: {target_channel.name}")
-    else:
-        print("⚠️ Bot is logged in, but the channel was not found. Check the channel ID and bot permissions.")
+    print(f"✅ Logged in as {client.user}")
 
 @client.event
 async def on_message(message):
