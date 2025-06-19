@@ -92,7 +92,8 @@ async def run_twister(twister_text):
             messages.append(msg)
     for i in range(1, 31):
         flame = bar(i)
-        new_txt = f"**👅Twister Time!**\n_{twister_text}_\n{flame} {i if i<30 else '30s  \\s i c k\\'}"
+        final_time = f"{i}" if i < 30 else "30s  \\s i c k\\"
+        new_txt = f"**👅Twister Time!**\n_{twister_text}_\n{flame} {final_time}"
         await edit_all_messages(messages, new_txt)
         await asyncio.sleep(1)
 
