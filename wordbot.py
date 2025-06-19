@@ -295,27 +295,27 @@ async def on_message(msg):
             await msg.channel.send(f"Loading syllables {parts[1]} next round...")
 
     elif content.startswith("+nouns"):
-        word_type = \"nouns\"
-        await msg.channel.send(\"Nouns loading next.\")
+        word_type = "nouns"
+        await msg.channel.send("Nouns loading next.")
 
     elif content.startswith("+verbs"):
-        word_type = \"verbs\"
-        await msg.channel.send(\"Verbs loading next.\")
+        word_type = "verbs"
+        await msg.channel.send("Verbs loading next.")
 
     elif content.startswith("+adjectives"):
-        word_type = \"adjectives\"
-        await msg.channel.send(\"Adjectives loading next.\")
+        word_type = "adjectives"
+        await msg.channel.send("Adjectives loading next.")
 
     elif content.startswith("+adverbs"):
-        word_type = \"adverbs\"
-        await msg.channel.send(\"Adverbs loading next.\")
+        word_type = "adverbs"
+        await msg.channel.send("Adverbs loading next.")
 
     elif content.startswith("+prepositions"):
-        word_type = \"prepositions\"
-        await msg.channel.send(\"Prepositions loading next.\")
+        word_type = "prepositions"
+        await msg.channel.send("Prepositions loading next.")
 
     elif content.startswith("+conjunctions"):
-        word_type = \"conjunctions\"
-        await msg.channel.send(\"Conjunctions loading next.\")
+        word_type = "conjunctions"
+        await msg.channel.send("Conjunctions loading next.")
 
 client.run(TOKEN)
